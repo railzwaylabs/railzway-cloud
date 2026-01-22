@@ -1,0 +1,5 @@
+ALTER TABLE instances ADD COLUMN db_host VARCHAR(255);
+ALTER TABLE instances ADD COLUMN db_port INT;
+ALTER TABLE instances ADD COLUMN db_name VARCHAR(255);
+ALTER TABLE instances ADD COLUMN db_user VARCHAR(255);
+ALTER TABLE instances ADD COLUMN db_password VARCHAR(255);

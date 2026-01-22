@@ -1,0 +1,5 @@
+ALTER TABLE instances DROP COLUMN IF EXISTS db_password;
+ALTER TABLE instances DROP COLUMN IF EXISTS db_user;
+ALTER TABLE instances DROP COLUMN IF EXISTS db_name;
+ALTER TABLE instances DROP COLUMN IF EXISTS db_port;
+ALTER TABLE instances DROP COLUMN IF EXISTS db_host;

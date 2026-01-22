@@ -1,0 +1,76 @@
+# Binaries
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test and coverage
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Dependencies
+vendor/
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Git
+.git/
+.gitignore
+
+# Documentation (build artifacts)
+docs/_build/
+
+# Frontend build artifacts
+apps/*/dist/
+apps/*/build/
+apps/*/.vite/
+apps/*/.next/
+
+# Go workspace
+go.work
+go.work.sum
+
+# Docker ignore
+.dockerignore
+README.md
+LICENSE
+CHANGELOG.md
+*.md
+!docs/*.md

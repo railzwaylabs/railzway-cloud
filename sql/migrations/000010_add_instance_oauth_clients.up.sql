@@ -1,0 +1,2 @@
+ALTER TABLE instances ADD COLUMN IF NOT EXISTS oauth_client_id VARCHAR(255);
+ALTER TABLE instances ADD COLUMN IF NOT EXISTS oauth_client_secret VARCHAR(255);

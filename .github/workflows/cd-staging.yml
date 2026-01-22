@@ -1,0 +1,80 @@
+name: CD - Deploy Cloud API (Staging)
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/infra-*'
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_ZONE: asia-southeast2-a
+  INSTANCE_NAME: railzway-cloud-api-staging
+  SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+  WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write # Required for WIF
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Build Output Binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o railzway-cloud ./apps/railzway
+
+      - name: Auth to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - name: Setup GCloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload Binary
+        run: |
+          gcloud compute scp railzway-cloud ${{ env.INSTANCE_NAME }}:~/railzway-cloud.new \
+            --zone=${{ env.GCP_ZONE }} \
+            --tunnel-through-iap
+
+      - name: Swap & Restart
+        run: |
+          gcloud compute ssh ${{ env.INSTANCE_NAME }} --zone=${{ env.GCP_ZONE }} --tunnel-through-iap --command="
+            set -e
+            
+            # 1. Stop Service
+            sudo systemctl stop railzway-cloud
+            
+            # 2. Backup DB (Logical) check
+            # (Optional: Trigger SQL export here)
+            
+            # 3. Swap Binary
+            sudo mv ~/railzway-cloud.new /usr/local/bin/railzway-cloud
+            sudo chmod +x /usr/local/bin/railzway-cloud
+            
+            # 4. Run Migrations
+            # Assuming env vars are set in systemd or .env file on host
+            # sudo /usr/local/bin/railzway-cloud migrate
+            
+            # 5. Start Service
+            sudo systemctl start railzway-cloud
+            
+            # 6. Verify health
+            sleep 5
+            curl -f http://localhost:8080/health || exit 1
+          "

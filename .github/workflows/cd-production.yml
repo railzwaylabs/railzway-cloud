@@ -1,0 +1,68 @@
+name: CD - Deploy Cloud API (Production)
+
+on:
+  push:
+    tags: [ "v*" ]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_ZONE: asia-southeast2-a
+  INSTANCE_NAME: railzway-cloud-api-prod
+  SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+  WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+
+jobs:
+  deploy:
+    name: Build & Deploy Prod
+    runs-on: ubuntu-latest
+    environment: production  # Requires explicit approval in GitHub settings
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Build Output Binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o railzway-cloud ./apps/railzway
+
+      - name: Auth to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - name: Setup GCloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Upload Binary
+        run: |
+          gcloud compute scp railzway-cloud ${{ env.INSTANCE_NAME }}:~/railzway-cloud.new \
+            --zone=${{ env.GCP_ZONE }} \
+            --tunnel-through-iap
+
+      - name: Swap & Restart
+        run: |
+          gcloud compute ssh ${{ env.INSTANCE_NAME }} --zone=${{ env.GCP_ZONE }} --tunnel-through-iap --command="
+            set -e
+            sudo systemctl stop railzway-cloud
+            # Backup recommendation: pg_dump before prod deploy!
+            sudo pg_dump -U postgres railzway_cloud > dump_\$(date +%s).sql
+            
+            sudo mv ~/railzway-cloud.new /usr/local/bin/railzway-cloud
+            sudo chmod +x /usr/local/bin/railzway-cloud
+            
+            # Run Schema Migrations
+            sudo /usr/local/bin/railzway-cloud migrate
+            
+            sudo systemctl start railzway-cloud
+            sleep 5
+            curl -f http://localhost:8080/health || exit 1
+          "

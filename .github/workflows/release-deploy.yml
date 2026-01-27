@@ -1,0 +1,161 @@
+name: Release & Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/ci-*'
+      - '.github/workflows/infra-*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Step 1: Run tests before release
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Run Tests
+        run: go test -race -v ./...
+
+      - name: Check Coverage
+        run: |
+          go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+          COVERAGE=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Coverage: $COVERAGE%"
+          # TODO: Uncomment when we reach 80% coverage
+          # if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+          #   echo "❌ Coverage is below 80%"
+          #   exit 1
+          # fi
+
+  # Step 2: Semantic Release (creates tag & GitHub release)
+  release:
+    name: Semantic Release
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Output
+        if: steps.semantic.outputs.new_release_published == 'true'
+        run: |
+          echo "🎉 New release published: v${{ steps.semantic.outputs.new_release_version }}"
+
+  # Step 3: Build & Push Docker Image
+  build:
+    name: Build & Push
+    needs: release
+    if: needs.release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ needs.release.outputs.new_release_version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.release.outputs.new_release_version }}
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # Step 4: Deploy to GCE
+  deploy:
+    name: Deploy to GCE
+    needs: [release, build]
+    if: needs.release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GCE via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCE_HOST_PROD_1 }}
+          username: ${{ secrets.GCE_USERNAME_PROD_1 }}
+          key: ${{ secrets.GCE_SSH_KEY_PROD_1 }}
+          script: |
+            # Pull latest image
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ needs.release.outputs.new_release_version }}
+
+            # Stop existing container (if running)
+            docker stop railzway-cloud || true
+            docker rm railzway-cloud || true
+
+            # Start new container
+            docker run -d \
+              --name railzway-cloud \
+              --restart unless-stopped \
+              --env-file /opt/railzway/.env \
+              --network host \
+              -v /opt/railzway/sql:/app/sql:ro \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ needs.release.outputs.new_release_version }}
+
+            # Cleanup old images (keep last 3)
+            docker image prune -af --filter "until=72h"
+
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCE_HOST_PROD_1 }}
+          username: ${{ secrets.GCE_USERNAME_PROD_1 }}
+          key: ${{ secrets.GCE_SSH_KEY_PROD_1 }}
+          script: |
+            # Wait for service to be ready
+            sleep 10
+
+            # Health check
+            if curl -f http://localhost:8080/health; then
+              echo "✅ Deployment successful!"
+            else
+              echo "❌ Health check failed!"
+              docker logs railzway-cloud --tail 50
+              exit 1
+            fi
+
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "🚀 Successfully deployed v${{ needs.release.outputs.new_release_version }} to production!"

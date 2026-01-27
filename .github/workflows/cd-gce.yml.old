@@ -1,0 +1,103 @@
+name: CD - Deploy to GCE
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Build & Deploy to GCE
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+          cache: true
+
+      - name: Run Tests
+        run: |
+          go test -race -v ./...
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Deploy to GCE via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCE_HOST_PROD_1 }}
+          username: ${{ secrets.GCE_USERNAME_PROD_1 }}
+          key: ${{ secrets.GCE_SSH_KEY_PROD_1 }}
+          script: |
+            # Pull latest image
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            
+            # Restart railzway-cloud service (adjust based on your deployment method)
+            # Option 1: If running as systemd service
+            # sudo systemctl restart railzway-cloud
+            
+            # Option 2: If running as Docker container
+            docker stop railzway-cloud || true
+            docker rm railzway-cloud || true
+            docker run -d \
+              --name railzway-cloud \
+              --restart unless-stopped \
+              --env-file /opt/railzway/.env \
+              -p 8080:8080 \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            
+            # Option 3: If using Nomad (uncomment if applicable)
+            # export NOMAD_ADDR=http://localhost:4646
+            # nomad job run /opt/railzway/jobs/railzway-cloud.nomad
+
+      - name: Verify Deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCE_HOST_PROD_1 }}
+          username: ${{ secrets.GCE_USERNAME_PROD_1 }}
+          key: ${{ secrets.GCE_SSH_KEY_PROD_1 }}
+          script: |
+            # Wait for service to be ready
+            sleep 10
+            
+            # Check if service is running
+            curl -f http://localhost:8080/health || exit 1
+            
+            echo "✅ Deployment successful!"

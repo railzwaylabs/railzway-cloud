@@ -38,6 +38,10 @@ func (a *Adapter) Deploy(ctx context.Context, cfg *provisioning.DeploymentConfig
 		OAuth2ClientID:     cfg.OAuth2ClientID,
 		OAuth2ClientSecret: cfg.OAuth2ClientSecret,
 		AuthJWTSecret:      cfg.AuthJWTSecret,
+
+		// Bootstrap Configuration
+		BootstrapOrgID:   cfg.BootstrapOrgID,
+		BootstrapOrgName: cfg.BootstrapOrgName,
 	}
 	return a.client.DeployInstance(jobCfg)
 }

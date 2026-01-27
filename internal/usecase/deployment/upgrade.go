@@ -70,6 +70,9 @@ func (uc *UpgradeUseCase) Upgrade(ctx context.Context, orgID int64, targetTier i
 		OAuth2ClientID:     coalesce(inst.OAuthClientID, uc.cfg.TenantOAuth2ClientID),
 		OAuth2ClientSecret: coalesce(inst.OAuthClientSecret, uc.cfg.TenantOAuth2ClientSecret),
 		AuthJWTSecret:      generateJWTSecret(uc.cfg.TenantAuthJWTSecretKey, inst.OrgID),
+		// Bootstrap Configuration
+		BootstrapOrgID:   inst.OrgID,
+		BootstrapOrgName: orgSlug,
 	}
 	if err := uc.provisioner.Deploy(ctx, &deployCfg); err != nil {
 		return fmt.Errorf("failed to upgrade infra: %w", err)

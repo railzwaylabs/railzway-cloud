@@ -23,6 +23,10 @@ type DeploymentConfig struct {
 	OAuth2ClientID     string
 	OAuth2ClientSecret string
 	AuthJWTSecret      string
+
+	// Bootstrap Configuration
+	BootstrapOrgID   int64
+	BootstrapOrgName string
 }
 
 // DBConfig holds the database connection details for the instance.

@@ -51,7 +51,7 @@ type Config struct {
 
 	OAuth2ClientID     string // Cloud backend OAuth (for Cloud UI)
 	OAuth2ClientSecret string // Cloud backend OAuth (for Cloud UI)
-	OAuth2URI          string // OAuth provider base URL (e.g., https://railzway.us.auth0.com)
+	OAuth2URI          string // OAuth provider base URL (e.g., https://accounts.railzway.com)
 	OAuth2CallbackURL  string // OAuth callback URL (e.g., http://localhost:8080/auth/callback)
 
 	// Tenant OAuth Configuration (for deployed OSS instances)

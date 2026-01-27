@@ -131,6 +131,9 @@ func (uc *DeployUseCase) Execute(ctx context.Context, orgID int64, version strin
 		OAuth2ClientID:     inst.OAuthClientID,
 		OAuth2ClientSecret: inst.OAuthClientSecret,
 		AuthJWTSecret:      generateJWTSecret(uc.cfg.TenantAuthJWTSecretKey, inst.OrgID),
+		// Bootstrap Configuration
+		BootstrapOrgID:   inst.OrgID,
+		BootstrapOrgName: orgSlug,
 	}
 
 	// 3. Provision

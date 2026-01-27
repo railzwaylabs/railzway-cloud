@@ -282,6 +282,10 @@ func buildEnvVars(cfg JobConfig, quotaCfg tierQuotaConfig) map[string]string {
 		"ENVIRONMENT":           "production",
 		"CLOUD_METRICS_ENABLED": "false",
 
+		// Bootstrap Configuration
+		"BOOTSTRAP_DEFAULT_ORG_ID":   fmt.Sprintf("%d", cfg.BootstrapOrgID),
+		"BOOTSTRAP_DEFAULT_ORG_NAME": cfg.BootstrapOrgName,
+
 		// Database Injection
 		"DB_HOST":     cfg.DBConfig.Host,
 		"DB_PORT":     fmt.Sprintf("%d", cfg.DBConfig.Port),
@@ -304,7 +308,7 @@ func buildEnvVars(cfg JobConfig, quotaCfg tierQuotaConfig) map[string]string {
 		"AUTH_RAILZWAY_COM_CLIENT_ID":     cfg.OAuth2ClientID,
 		"AUTH_RAILZWAY_COM_CLIENT_SECRET": cfg.OAuth2ClientSecret,
 
-		// Construct Auth0 URLs using OAuth2URI
+		// Construct URLs using OAuth2URI (e.g., https://accounts.railzway.com)
 		"AUTH_RAILZWAY_COM_AUTH_URL":  fmt.Sprintf("%s/authorize", cfg.OAuth2URI),
 		"AUTH_RAILZWAY_COM_TOKEN_URL": fmt.Sprintf("%s/oauth/token", cfg.OAuth2URI),
 		"AUTH_RAILZWAY_COM_API_URL":   fmt.Sprintf("%s/userinfo", cfg.OAuth2URI),
@@ -330,7 +334,7 @@ func buildEnvVars(cfg JobConfig, quotaCfg tierQuotaConfig) map[string]string {
 		"QUOTA_ORG_API_KEY":       quotaCfg.QuotaOrgAPIKey,
 		"QUOTA_USER_ORG":          quotaCfg.QuotaUserOrg,
 		"QUOTA_GLOBAL_USER":       "-1",
-		"QUOTA_GLOBAL_ORG":        "-1",
+		"QUOTA_GLOBAL_ORG":        "1",
 		"QUOTA_ORG_USAGE_MONTHLY": quotaCfg.QuotaUsageMonthly,
 	}
 	return env

@@ -41,6 +41,10 @@ type JobConfig struct {
 	OAuth2ClientSecret string
 	OAuth2CallbackURL  string
 	AuthJWTSecret      string
+
+	// Bootstrap Configuration for deployed Railzway OSS instance
+	BootstrapOrgID   int64  // OrgID from Cloud (same as OrgID)
+	BootstrapOrgName string // Organization name
 }
 
 type DBConfig struct {

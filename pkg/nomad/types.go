@@ -27,6 +27,7 @@ const (
 type JobConfig struct {
 	OrgID                  int64
 	OrgSlug                string
+	OrgName                string
 	Tier                   Tier
 	ComputeEngine          ComputeEngine
 	Version                string
@@ -36,11 +37,11 @@ type JobConfig struct {
 	RateLimitRedisDB       int
 
 	// OAuth Configuration for federation sign-in
-	OAuth2URI          string
-	OAuth2ClientID     string
-	OAuth2ClientSecret string
-	OAuth2CallbackURL  string
-	AuthJWTSecret      string
+	OAuth2URI                   string
+	OAuth2ClientID              string
+	OAuth2ClientSecret          string
+	OAuth2CallbackURL           string
+	PaymentProviderConfigSecret string
 }
 
 type DBConfig struct {

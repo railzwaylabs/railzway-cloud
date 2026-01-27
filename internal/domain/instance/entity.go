@@ -104,8 +104,9 @@ type Instance struct {
 	LaunchURL          string          `gorm:"column:launch_url" json:"launch_url"`
 	LastError          string          `gorm:"column:last_error" json:"last_error,omitempty"`
 
-	OAuthClientID     string `gorm:"column:oauth_client_id" json:"-"`
-	OAuthClientSecret string `gorm:"column:oauth_client_secret" json:"-"`
+	OAuthClientID                        string `gorm:"column:oauth_client_id" json:"-"`
+	OAuthClientSecret                    string `gorm:"column:oauth_client_secret" json:"-"`
+	PaymentProviderConfigSecretEncrypted string `gorm:"column:payment_provider_config_secret" json:"-"` // Encrypted at rest
 
 	// Database Details (Managed by Railzway Cloud)
 	DBHost     string `gorm:"column:db_host" json:"db_host"`

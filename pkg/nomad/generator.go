@@ -84,6 +84,38 @@ func GenerateJob(cfg JobConfig) (*api.Job, error) {
 		},
 	}
 
+	consulPrefix := fmt.Sprintf("railzway-cloud/orgs/%d", cfg.OrgID)
+	consulTemplate := fmt.Sprintf(`{{ with key "%s/db/host" }}DB_HOST={{ . }}
+{{ end }}{{ with key "%s/db/port" }}DB_PORT={{ . }}
+{{ end }}{{ with key "%s/db/name" }}DB_NAME={{ . }}
+{{ end }}{{ with key "%s/db/user" }}DB_USER={{ . }}
+{{ end }}{{ with key "%s/db/password" }}DB_PASSWORD={{ . }}
+{{ end }}{{ with key "%s/oauth/client_id" }}OAUTH2_CLIENT_ID={{ . }}
+{{ end }}{{ with key "%s/oauth/client_secret" }}OAUTH2_CLIENT_SECRET={{ . }}
+{{ end }}{{ with key "%s/oauth/client_id" }}AUTH_RAILZWAY_COM_CLIENT_ID={{ . }}
+{{ end }}{{ with key "%s/oauth/client_secret" }}AUTH_RAILZWAY_COM_CLIENT_SECRET={{ . }}
+{{ end }}{{ with key "%s/payment_provider_config_secret" }}PAYMENT_PROVIDER_CONFIG_SECRET={{ . }}
+{{ end }}`,
+		consulPrefix,
+		consulPrefix,
+		consulPrefix,
+		consulPrefix,
+		consulPrefix,
+		consulPrefix,
+		consulPrefix,
+		consulPrefix,
+		consulPrefix,
+		consulPrefix,
+	)
+
+	task.Templates = []*api.Template{
+		{
+			EmbeddedTmpl: stringToPtr(consulTemplate),
+			DestPath:     stringToPtr("local/consul.env"),
+			Envvars:      boolToPtr(true),
+		},
+	}
+
 	// Service (for Consul & Traefik)
 	host := "railzway.com"
 	if os.Getenv("APP_ROOT_DOMAIN") != "" {
@@ -145,6 +177,11 @@ type tierQuotaConfig struct {
 	QuotaOrgAPIKey     string
 	QuotaUserOrg       string
 	QuotaUsageMonthly  string
+
+	// New Quotas
+	QuotaOrgCustomer     string
+	QuotaOrgSubscription string
+	WebhookRetentionDays string
 }
 
 func getTierQuotaConfig(tier Tier) tierQuotaConfig {
@@ -161,6 +198,10 @@ func getTierQuotaConfig(tier Tier) tierQuotaConfig {
 			QuotaOrgAPIKey:      "2",
 			QuotaUserOrg:        "1",
 			QuotaUsageMonthly:   "10000",
+
+			QuotaOrgCustomer:     "10",
+			QuotaOrgSubscription: "5",
+			WebhookRetentionDays: "7",
 		}
 	case TierStarter:
 		return tierQuotaConfig{
@@ -174,6 +215,10 @@ func getTierQuotaConfig(tier Tier) tierQuotaConfig {
 			QuotaOrgAPIKey:      "5",
 			QuotaUserOrg:        "2",
 			QuotaUsageMonthly:   "100000",
+
+			QuotaOrgCustomer:     "100",
+			QuotaOrgSubscription: "10",
+			WebhookRetentionDays: "30",
 		}
 	case TierPro:
 		return tierQuotaConfig{
@@ -200,6 +245,10 @@ func getTierQuotaConfig(tier Tier) tierQuotaConfig {
 			QuotaOrgAPIKey:      "50",
 			QuotaUserOrg:        "20",
 			QuotaUsageMonthly:   "10000000",
+
+			QuotaOrgCustomer:     "5000",
+			QuotaOrgSubscription: "200",
+			WebhookRetentionDays: "180",
 		}
 	case TierEnterprise:
 		return tierQuotaConfig{
@@ -213,6 +262,10 @@ func getTierQuotaConfig(tier Tier) tierQuotaConfig {
 			QuotaOrgAPIKey:      "100",
 			QuotaUserOrg:        "50",
 			QuotaUsageMonthly:   "100000000",
+
+			QuotaOrgCustomer:     "-1",
+			QuotaOrgSubscription: "-1",
+			WebhookRetentionDays: "365",
 		}
 	default:
 		// Fallback to Pro settings if unknown (safe default)
@@ -227,6 +280,10 @@ func getTierQuotaConfig(tier Tier) tierQuotaConfig {
 			QuotaOrgAPIKey:      "10",
 			QuotaUserOrg:        "10",
 			QuotaUsageMonthly:   "1000000",
+
+			QuotaOrgCustomer:     "1000",
+			QuotaOrgSubscription: "50",
+			WebhookRetentionDays: "90",
 		}
 	}
 }
@@ -282,6 +339,10 @@ func buildEnvVars(cfg JobConfig, quotaCfg tierQuotaConfig) map[string]string {
 		"ENVIRONMENT":           "production",
 		"CLOUD_METRICS_ENABLED": "false",
 
+		// Bootstrap Configuration
+		"BOOTSTRAP_DEFAULT_ORG_ID":   fmt.Sprintf("%d", cfg.OrgID),
+		"BOOTSTRAP_DEFAULT_ORG_NAME": cfg.OrgName,
+
 		// Database Injection
 		"DB_HOST":     cfg.DBConfig.Host,
 		"DB_PORT":     fmt.Sprintf("%d", cfg.DBConfig.Port),
@@ -292,9 +353,9 @@ func buildEnvVars(cfg JobConfig, quotaCfg tierQuotaConfig) map[string]string {
 			cfg.DBConfig.User, cfg.DBConfig.Password, cfg.DBConfig.Host, cfg.DBConfig.Port, cfg.DBConfig.Name),
 
 		// OAuth Federation
-		"OAUTH2_CLIENT_ID":     cfg.OAuth2ClientID,
-		"OAUTH2_CLIENT_SECRET": cfg.OAuth2ClientSecret,
-		"AUTH_JWT_SECRET":      cfg.AuthJWTSecret,
+		"OAUTH2_CLIENT_ID":               cfg.OAuth2ClientID,
+		"OAUTH2_CLIENT_SECRET":           cfg.OAuth2ClientSecret,
+		"PAYMENT_PROVIDER_CONFIG_SECRET": cfg.PaymentProviderConfigSecret,
 
 		"AUTH_RAILZWAY_COM_NAME":          "Railzway.com",
 		"AUTH_RAILZWAY_COM_ENABLED":       "true",
@@ -304,7 +365,7 @@ func buildEnvVars(cfg JobConfig, quotaCfg tierQuotaConfig) map[string]string {
 		"AUTH_RAILZWAY_COM_CLIENT_ID":     cfg.OAuth2ClientID,
 		"AUTH_RAILZWAY_COM_CLIENT_SECRET": cfg.OAuth2ClientSecret,
 
-		// Construct Auth0 URLs using OAuth2URI
+		// Construct URLs using OAuth2URI (e.g., https://accounts.railzway.com)
 		"AUTH_RAILZWAY_COM_AUTH_URL":  fmt.Sprintf("%s/authorize", cfg.OAuth2URI),
 		"AUTH_RAILZWAY_COM_TOKEN_URL": fmt.Sprintf("%s/oauth/token", cfg.OAuth2URI),
 		"AUTH_RAILZWAY_COM_API_URL":   fmt.Sprintf("%s/userinfo", cfg.OAuth2URI),
@@ -330,8 +391,14 @@ func buildEnvVars(cfg JobConfig, quotaCfg tierQuotaConfig) map[string]string {
 		"QUOTA_ORG_API_KEY":       quotaCfg.QuotaOrgAPIKey,
 		"QUOTA_USER_ORG":          quotaCfg.QuotaUserOrg,
 		"QUOTA_GLOBAL_USER":       "-1",
-		"QUOTA_GLOBAL_ORG":        "-1",
+		"QUOTA_GLOBAL_ORG":        "1",
 		"QUOTA_ORG_USAGE_MONTHLY": quotaCfg.QuotaUsageMonthly,
+
+		"QUOTA_ORG_CUSTOMER":     quotaCfg.QuotaOrgCustomer,
+		"QUOTA_ORG_SUBSCRIPTION": quotaCfg.QuotaOrgSubscription,
+
+		// Privacy
+		"WEBHOOK_RETENTION_DAYS": quotaCfg.WebhookRetentionDays,
 	}
 	return env
 }

@@ -10,6 +10,7 @@ import (
 type DeploymentConfig struct {
 	OrgID                  int64
 	OrgSlug                string
+	OrgName                string
 	Version                string
 	Tier                   instance.Tier
 	ComputeEngine          instance.ComputeEngine
@@ -19,10 +20,10 @@ type DeploymentConfig struct {
 	RateLimitRedisDB       int
 
 	// OAuth Configuration
-	OAuth2URI          string
-	OAuth2ClientID     string
-	OAuth2ClientSecret string
-	AuthJWTSecret      string
+	OAuth2URI                   string
+	OAuth2ClientID              string
+	OAuth2ClientSecret          string
+	PaymentProviderConfigSecret string
 }
 
 // DBConfig holds the database connection details for the instance.

@@ -11,26 +11,27 @@ import (
 
 // InstanceModel is the database DTO with Gorm tags.
 type InstanceModel struct {
-	ID                 int64      `gorm:"column:id;primaryKey"`
-	OrgID              int64      `gorm:"column:org_id;uniqueIndex"`
-	NomadJobID         string     `gorm:"column:nomad_job_id;type:varchar(255)"`
-	DesiredVersion     string     `gorm:"column:desired_version;type:varchar(50)"`
-	CurrentVersion     string     `gorm:"column:current_version;type:varchar(50)"`
-	Status             string     `gorm:"column:status;type:varchar(50)"`
-	Role               string     `gorm:"column:role;type:varchar(50)"`
-	LifecycleState     string     `gorm:"column:lifecycle_state;type:varchar(50)"`
-	ReadinessStatus    string     `gorm:"column:readiness_status;type:varchar(50)"`
-	ReadinessCheckedAt *time.Time `gorm:"column:readiness_checked_at;type:timestamptz"`
-	ReadinessError     string     `gorm:"column:readiness_error;type:text"`
-	Tier               string     `gorm:"column:tier;type:varchar(50)"`
-	ComputeEngine      string     `gorm:"column:compute_engine;type:varchar(50)"`
-	PlanID             string     `gorm:"column:plan_id;type:varchar(255)"`
-	PriceID            string     `gorm:"column:price_id;type:varchar(255)"`
-	SubscriptionID     string     `gorm:"column:subscription_id;type:varchar(255)"`
-	LaunchURL          string     `gorm:"column:launch_url;type:text"`
-	LastError          string     `gorm:"column:last_error;type:text"`
-	OAuthClientID      string     `gorm:"column:oauth_client_id;type:varchar(255)"`
-	OAuthClientSecret  string     `gorm:"column:oauth_client_secret;type:varchar(255)"`
+	ID                          int64      `gorm:"column:id;primaryKey"`
+	OrgID                       int64      `gorm:"column:org_id;uniqueIndex"`
+	NomadJobID                  string     `gorm:"column:nomad_job_id;type:varchar(255)"`
+	DesiredVersion              string     `gorm:"column:desired_version;type:varchar(50)"`
+	CurrentVersion              string     `gorm:"column:current_version;type:varchar(50)"`
+	Status                      string     `gorm:"column:status;type:varchar(50)"`
+	Role                        string     `gorm:"column:role;type:varchar(50)"`
+	LifecycleState              string     `gorm:"column:lifecycle_state;type:varchar(50)"`
+	ReadinessStatus             string     `gorm:"column:readiness_status;type:varchar(50)"`
+	ReadinessCheckedAt          *time.Time `gorm:"column:readiness_checked_at;type:timestamptz"`
+	ReadinessError              string     `gorm:"column:readiness_error;type:text"`
+	Tier                        string     `gorm:"column:tier;type:varchar(50)"`
+	ComputeEngine               string     `gorm:"column:compute_engine;type:varchar(50)"`
+	PlanID                      string     `gorm:"column:plan_id;type:varchar(255)"`
+	PriceID                     string     `gorm:"column:price_id;type:varchar(255)"`
+	SubscriptionID              string     `gorm:"column:subscription_id;type:varchar(255)"`
+	LaunchURL                   string     `gorm:"column:launch_url;type:text"`
+	LastError                   string     `gorm:"column:last_error;type:text"`
+	OAuthClientID               string     `gorm:"column:oauth_client_id;type:varchar(255)"`
+	OAuthClientSecret           string     `gorm:"column:oauth_client_secret;type:varchar(255)"`
+	PaymentProviderConfigSecret string     `gorm:"column:payment_provider_config_secret;type:text"`
 
 	// Database Details
 	DBHost     string `gorm:"column:db_host;type:varchar(255)"`
@@ -127,33 +128,34 @@ func toDomain(m InstanceModel) *instance.Instance {
 		readiness = instance.ReadinessUnknown
 	}
 	return &instance.Instance{
-		ID:                 m.ID,
-		OrgID:              m.OrgID,
-		NomadJobID:         m.NomadJobID,
-		DesiredVersion:     m.DesiredVersion,
-		CurrentVersion:     m.CurrentVersion,
-		Status:             instance.InstanceStatus(m.Status),
-		Role:               role,
-		LifecycleState:     lifecycle,
-		Readiness:          readiness,
-		ReadinessCheckedAt: m.ReadinessCheckedAt,
-		ReadinessError:     m.ReadinessError,
-		Tier:               instance.Tier(m.Tier),
-		ComputeEngine:      instance.ComputeEngine(m.ComputeEngine),
-		PlanID:             m.PlanID,
-		PriceID:            m.PriceID,
-		SubscriptionID:     m.SubscriptionID,
-		LaunchURL:          m.LaunchURL,
-		LastError:          m.LastError,
-		OAuthClientID:      m.OAuthClientID,
-		OAuthClientSecret:  m.OAuthClientSecret,
-		DBHost:             m.DBHost,
-		DBPort:             m.DBPort,
-		DBName:             m.DBName,
-		DBUser:             m.DBUser,
-		DBPassword:         m.DBPassword,
-		CreatedAt:          m.CreatedAt,
-		UpdatedAt:          m.UpdatedAt,
+		ID:                                   m.ID,
+		OrgID:                                m.OrgID,
+		NomadJobID:                           m.NomadJobID,
+		DesiredVersion:                       m.DesiredVersion,
+		CurrentVersion:                       m.CurrentVersion,
+		Status:                               instance.InstanceStatus(m.Status),
+		Role:                                 role,
+		LifecycleState:                       lifecycle,
+		Readiness:                            readiness,
+		ReadinessCheckedAt:                   m.ReadinessCheckedAt,
+		ReadinessError:                       m.ReadinessError,
+		Tier:                                 instance.Tier(m.Tier),
+		ComputeEngine:                        instance.ComputeEngine(m.ComputeEngine),
+		PlanID:                               m.PlanID,
+		PriceID:                              m.PriceID,
+		SubscriptionID:                       m.SubscriptionID,
+		LaunchURL:                            m.LaunchURL,
+		LastError:                            m.LastError,
+		OAuthClientID:                        m.OAuthClientID,
+		OAuthClientSecret:                    m.OAuthClientSecret,
+		PaymentProviderConfigSecretEncrypted: m.PaymentProviderConfigSecret,
+		DBHost:                               m.DBHost,
+		DBPort:                               m.DBPort,
+		DBName:                               m.DBName,
+		DBUser:                               m.DBUser,
+		DBPassword:                           m.DBPassword,
+		CreatedAt:                            m.CreatedAt,
+		UpdatedAt:                            m.UpdatedAt,
 	}
 }
 
@@ -171,32 +173,33 @@ func toModel(d *instance.Instance) InstanceModel {
 		readiness = instance.ReadinessUnknown
 	}
 	return InstanceModel{
-		ID:                 d.ID,
-		OrgID:              d.OrgID,
-		NomadJobID:         d.NomadJobID,
-		DesiredVersion:     d.DesiredVersion,
-		CurrentVersion:     d.CurrentVersion,
-		Status:             string(d.Status),
-		Role:               string(role),
-		LifecycleState:     string(lifecycle),
-		ReadinessStatus:    string(readiness),
-		ReadinessCheckedAt: d.ReadinessCheckedAt,
-		ReadinessError:     d.ReadinessError,
-		Tier:               string(d.Tier),
-		ComputeEngine:      string(d.ComputeEngine),
-		PlanID:             d.PlanID,
-		PriceID:            d.PriceID,
-		SubscriptionID:     d.SubscriptionID,
-		LaunchURL:          d.LaunchURL,
-		LastError:          d.LastError,
-		OAuthClientID:      d.OAuthClientID,
-		OAuthClientSecret:  d.OAuthClientSecret,
-		DBHost:             d.DBHost,
-		DBPort:             d.DBPort,
-		DBName:             d.DBName,
-		DBUser:             d.DBUser,
-		DBPassword:         d.DBPassword,
-		CreatedAt:          d.CreatedAt,
-		UpdatedAt:          d.UpdatedAt,
+		ID:                          d.ID,
+		OrgID:                       d.OrgID,
+		NomadJobID:                  d.NomadJobID,
+		DesiredVersion:              d.DesiredVersion,
+		CurrentVersion:              d.CurrentVersion,
+		Status:                      string(d.Status),
+		Role:                        string(role),
+		LifecycleState:              string(lifecycle),
+		ReadinessStatus:             string(readiness),
+		ReadinessCheckedAt:          d.ReadinessCheckedAt,
+		ReadinessError:              d.ReadinessError,
+		Tier:                        string(d.Tier),
+		ComputeEngine:               string(d.ComputeEngine),
+		PlanID:                      d.PlanID,
+		PriceID:                     d.PriceID,
+		SubscriptionID:              d.SubscriptionID,
+		LaunchURL:                   d.LaunchURL,
+		LastError:                   d.LastError,
+		OAuthClientID:               d.OAuthClientID,
+		OAuthClientSecret:           d.OAuthClientSecret,
+		PaymentProviderConfigSecret: d.PaymentProviderConfigSecretEncrypted,
+		DBHost:                      d.DBHost,
+		DBPort:                      d.DBPort,
+		DBName:                      d.DBName,
+		DBUser:                      d.DBUser,
+		DBPassword:                  d.DBPassword,
+		CreatedAt:                   d.CreatedAt,
+		UpdatedAt:                   d.UpdatedAt,
 	}
 }

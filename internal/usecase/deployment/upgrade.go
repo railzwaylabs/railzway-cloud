@@ -55,21 +55,27 @@ func (uc *UpgradeUseCase) Upgrade(ctx context.Context, orgID int64, targetTier i
 	}
 
 	// 2. Deploy Infra
-	orgSlug, err := uc.orgService.GetSlug(ctx, inst.OrgID)
+	org, err := uc.orgService.GetSlug(ctx, inst.OrgID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve org slug: %w", err)
 	}
 
+	paymentSecret, err := resolvePaymentProviderSecret(uc.cfg, inst)
+	if err != nil {
+		return err
+	}
+
 	deployCfg := provisioning.DeploymentConfig{
-		OrgID:              inst.OrgID,
-		OrgSlug:            orgSlug,
-		Version:            inst.DesiredVersion,
-		Tier:               targetTier,
-		ComputeEngine:      inst.ComputeEngine,
-		OAuth2URI:          uc.cfg.OAuth2URI,
-		OAuth2ClientID:     coalesce(inst.OAuthClientID, uc.cfg.TenantOAuth2ClientID),
-		OAuth2ClientSecret: coalesce(inst.OAuthClientSecret, uc.cfg.TenantOAuth2ClientSecret),
-		AuthJWTSecret:      generateJWTSecret(uc.cfg.TenantAuthJWTSecretKey, inst.OrgID),
+		OrgID:                       org.ID,
+		OrgSlug:                     org.Slug,
+		OrgName:                     org.Name,
+		Version:                     inst.DesiredVersion,
+		Tier:                        targetTier,
+		ComputeEngine:               inst.ComputeEngine,
+		OAuth2URI:                   uc.cfg.OAuth2URI,
+		OAuth2ClientID:              coalesce(inst.OAuthClientID, uc.cfg.TenantOAuth2ClientID),
+		OAuth2ClientSecret:          coalesce(inst.OAuthClientSecret, uc.cfg.TenantOAuth2ClientSecret),
+		PaymentProviderConfigSecret: paymentSecret,
 	}
 	if err := uc.provisioner.Deploy(ctx, &deployCfg); err != nil {
 		return fmt.Errorf("failed to upgrade infra: %w", err)

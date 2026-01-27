@@ -19,6 +19,7 @@ func (a *Adapter) Deploy(ctx context.Context, cfg *provisioning.DeploymentConfig
 	jobCfg := nomad.JobConfig{
 		OrgID:   cfg.OrgID,
 		OrgSlug: cfg.OrgSlug,
+		OrgName: cfg.OrgName,
 		Version: cfg.Version,
 		Tier:    nomad.Tier(cfg.Tier),
 
@@ -34,14 +35,10 @@ func (a *Adapter) Deploy(ctx context.Context, cfg *provisioning.DeploymentConfig
 		RateLimitRedisPassword: cfg.RateLimitRedisPassword,
 		RateLimitRedisDB:       cfg.RateLimitRedisDB,
 
-		OAuth2URI:          cfg.OAuth2URI,
-		OAuth2ClientID:     cfg.OAuth2ClientID,
-		OAuth2ClientSecret: cfg.OAuth2ClientSecret,
-		AuthJWTSecret:      cfg.AuthJWTSecret,
-
-		// Bootstrap Configuration
-		BootstrapOrgID:   cfg.BootstrapOrgID,
-		BootstrapOrgName: cfg.BootstrapOrgName,
+		OAuth2URI:                   cfg.OAuth2URI,
+		OAuth2ClientID:              cfg.OAuth2ClientID,
+		OAuth2ClientSecret:          cfg.OAuth2ClientSecret,
+		PaymentProviderConfigSecret: cfg.PaymentProviderConfigSecret,
 	}
 	return a.client.DeployInstance(jobCfg)
 }

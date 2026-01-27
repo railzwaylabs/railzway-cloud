@@ -87,12 +87,12 @@ func (uc *DeployUseCase) Execute(ctx context.Context, orgID int64, version strin
 	}
 
 	// 3. Prepare Config
-	orgSlug, err := uc.orgService.GetSlug(ctx, inst.OrgID)
+	org, err := uc.orgService.GetSlug(ctx, inst.OrgID)
 	if err != nil {
 		return fmt.Errorf("failed to resolve org slug: %w", err)
 	}
 
-	launchURL := resolveLaunchURL(uc.cfg, orgSlug, inst.LaunchURL)
+	launchURL := resolveLaunchURL(uc.cfg, org.Slug, inst.LaunchURL)
 	if launchURL == "" {
 		return fmt.Errorf("launch url is required")
 	}
@@ -110,9 +110,15 @@ func (uc *DeployUseCase) Execute(ctx context.Context, orgID int64, version strin
 		return fmt.Errorf("auth client secret missing for org %d", inst.OrgID)
 	}
 
+	paymentSecret, err := resolvePaymentProviderSecret(uc.cfg, inst)
+	if err != nil {
+		return err
+	}
+
 	deployCfg := provisioning.DeploymentConfig{
-		OrgID:         inst.OrgID,
-		OrgSlug:       orgSlug,
+		OrgID:         org.ID,
+		OrgSlug:       org.Slug,
+		OrgName:       org.Name,
 		Version:       version,
 		Tier:          inst.Tier,
 		ComputeEngine: inst.ComputeEngine,
@@ -123,17 +129,16 @@ func (uc *DeployUseCase) Execute(ctx context.Context, orgID int64, version strin
 			User:     inst.DBUser,
 			Password: inst.DBPassword,
 		},
+		// Runtime Configuration
 		RateLimitRedisAddr:     uc.runtimeCfg.RateLimitRedisAddr,
 		RateLimitRedisPassword: uc.runtimeCfg.RateLimitRedisPassword,
 		RateLimitRedisDB:       uc.runtimeCfg.RateLimitRedisDB,
+
 		// OAuth Configuration
-		OAuth2URI:          uc.cfg.OAuth2URI,
-		OAuth2ClientID:     inst.OAuthClientID,
-		OAuth2ClientSecret: inst.OAuthClientSecret,
-		AuthJWTSecret:      generateJWTSecret(uc.cfg.TenantAuthJWTSecretKey, inst.OrgID),
-		// Bootstrap Configuration
-		BootstrapOrgID:   inst.OrgID,
-		BootstrapOrgName: orgSlug,
+		OAuth2URI:                   uc.cfg.OAuth2URI,
+		OAuth2ClientID:              inst.OAuthClientID,
+		OAuth2ClientSecret:          inst.OAuthClientSecret,
+		PaymentProviderConfigSecret: paymentSecret,
 	}
 
 	// 3. Provision

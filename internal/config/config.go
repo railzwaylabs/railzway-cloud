@@ -15,12 +15,13 @@ type Config struct {
 	AppVersion string
 	Port       string
 
-	Environment      string
-	AuthCookieSecure bool
-	AuthJWTSecret    string
-	AdminAPIToken    string
-	AppRootDomain    string
-	AppRootScheme    string
+	Environment                 string
+	AuthCookieSecure            bool
+	AdminAPIToken               string
+	AuthCookieSecret            string
+	InstanceSecretEncryptionKey string
+	AppRootDomain               string
+	AppRootScheme               string
 
 	OTLPEndpoint string
 
@@ -98,8 +99,9 @@ func Load() *Config {
 		Port:                            getenv("PORT", "8081"),
 		Environment:                     environment,
 		AuthCookieSecure:                authCookieSecure,
-		AuthJWTSecret:                   strings.TrimSpace(getenv("AUTH_JWT_SECRET", "")),
 		AdminAPIToken:                   strings.TrimSpace(getenv("ADMIN_API_TOKEN", "")),
+		AuthCookieSecret:                strings.TrimSpace(getenv("AUTH_COOKIE_SECRET", "")),
+		InstanceSecretEncryptionKey:     strings.TrimSpace(getenv("INSTANCE_SECRET_ENCRYPTION_KEY", "")),
 		AppRootDomain:                   strings.TrimLeft(strings.TrimSpace(getenv("APP_ROOT_DOMAIN", "")), "."),
 		AppRootScheme:                   strings.TrimSpace(getenv("APP_ROOT_SCHEME", "")),
 		OTLPEndpoint:                    getenv("OTLP_ENDPOINT", "localhost:4317"),

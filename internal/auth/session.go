@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
@@ -13,6 +14,7 @@ import (
 const (
 	SessionName = "railzway_cloud_session"
 	UserIDXKey  = "user_id"
+	sessionKey  = "dev-insecure-session-key"
 )
 
 type SessionManager struct {
@@ -23,7 +25,15 @@ type SessionManager struct {
 }
 
 func NewSessionManager(cfg *config.Config, userService *user.Service, logger *zap.Logger) *SessionManager {
-	store := sessions.NewCookieStore([]byte(cfg.AuthJWTSecret)) // Reusing JWT secret for session encryption
+	secret := strings.TrimSpace(cfg.AuthCookieSecret)
+	if secret == "" {
+		secret = sessionKey
+		if logger != nil {
+			logger.Warn("AUTH_COOKIE_SECRET is empty, using insecure fallback")
+		}
+	}
+
+	store := sessions.NewCookieStore([]byte(secret))
 	store.Options = &sessions.Options{
 		Path:     "/",
 		MaxAge:   86400 * 7, // 7 days

@@ -157,7 +157,6 @@ func TestGenerateJob_AuthFederation(t *testing.T) {
 		OAuth2ClientID:     "client-id-xyz",
 		OAuth2ClientSecret: "client-secret-abc",
 		OAuth2CallbackURL:  "http://localhost:8080/callback",
-		AuthJWTSecret:      "jwt-secret-123",
 	}
 
 	job, err := GenerateJob(cfg)

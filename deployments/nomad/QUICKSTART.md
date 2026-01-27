@@ -1,102 +1,109 @@
-# Quick Start Guide - Nomad Deployment
+# Ready to Deploy! 🚀
 
-Karena Nomad + Consul + Traefik sudah ready, tinggal 3 langkah:
+## ✅ Infrastructure Status
 
-## 1️⃣ **Buat Environment File**
+Semua sudah ready:
+- ✅ Nomad cluster
+- ✅ Consul
+- ✅ Traefik
+- ✅ Docker runtime
+- ✅ PostgreSQL (Nomad job)
+- ✅ Redis (Nomad job)
+
+---
+
+## 🎯 Tinggal 2 Langkah!
+
+### **Step 1: Setup Environment Variables**
 
 ```bash
 # SSH ke server
 ssh taufik_triantono@<server-ip>
 
-# Buat directory
-sudo mkdir -p /opt/railzway/deployments
-sudo mkdir -p /opt/railzway/sql
-
 # Buat .env file
+sudo mkdir -p /opt/railzway
 sudo nano /opt/railzway/.env
 ```
 
-**Paste content ini** (sesuaikan dengan setup Anda):
+**Paste ini** (sesuaikan values):
 
 ```bash
-# Database
-DB_HOST=localhost
+# Database (dari Nomad job PostgreSQL)
+DB_HOST=postgres.service.consul  # atau IP allocation PostgreSQL
 DB_PORT=5432
 DB_NAME=cloud
 DB_USER=postgres
-DB_PASSWORD=YOUR_PASSWORD
+DB_PASSWORD=<your_postgres_password>
 DB_SSL_MODE=disable
 
-# Provision DB (sama dengan DB utama atau terpisah)
-PROVISION_DB_HOST=localhost
+# Provision DB (sama dengan DB utama)
+PROVISION_DB_HOST=postgres.service.consul
 PROVISION_DB_PORT=5432
 PROVISION_DB_NAME=cloud
 PROVISION_DB_USER=postgres
-PROVISION_DB_PASSWORD=YOUR_PASSWORD
+PROVISION_DB_PASSWORD=<your_postgres_password>
 PROVISION_DB_SSL_MODE=disable
 
-# Redis (optional, kosongkan jika tidak pakai)
-PROVISION_RATE_LIMIT_REDIS_ADDR=
+# Redis (dari Nomad job Redis)
+PROVISION_RATE_LIMIT_REDIS_ADDR=redis.service.consul:6379
 PROVISION_RATE_LIMIT_REDIS_PASSWORD=
 PROVISION_RATE_LIMIT_REDIS_DB=0
 
-# OAuth2 (untuk Cloud UI login)
-OAUTH2_CLIENT_ID=your_oauth_client_id
-OAUTH2_CLIENT_SECRET=your_oauth_client_secret
-OAUTH2_URI=https://your-auth-provider.com
+# OAuth2 - SESUAIKAN INI!
+OAUTH2_CLIENT_ID=<your_oauth_client_id>
+OAUTH2_CLIENT_SECRET=<your_oauth_client_secret>
+OAUTH2_URI=<your_auth_provider_url>
 OAUTH2_CALLBACK_URL=https://cloud.railzway.com/auth/callback
 
-# Tenant OAuth (untuk customer instances yang di-deploy)
-TENANT_OAUTH2_CLIENT_ID=tenant_client_id
-TENANT_OAUTH2_CLIENT_SECRET=tenant_client_secret
-TENANT_AUTH_JWT_SECRET_KEY=random_secret_key_min_32_chars
+# Tenant OAuth - SESUAIKAN INI!
+TENANT_OAUTH2_CLIENT_ID=<tenant_client_id>
+TENANT_OAUTH2_CLIENT_SECRET=<tenant_client_secret>
+TENANT_AUTH_JWT_SECRET_KEY=$(openssl rand -base64 32)
 
-# Security
-AUTH_JWT_SECRET=random_jwt_secret_min_32_chars
-ADMIN_API_TOKEN=random_admin_token
+# Security - GENERATE RANDOM!
+AUTH_JWT_SECRET=$(openssl rand -base64 32)
+ADMIN_API_TOKEN=$(openssl rand -hex 32)
 
 # Application
 APP_ROOT_DOMAIN=railzway.com
 APP_ROOT_SCHEME=https
 ```
 
----
-
-## 2️⃣ **Copy Files ke Server**
-
+**Generate secrets:**
 ```bash
-# Dari local machine
-scp deployments/nomad/* taufik_triantono@<server-ip>:/opt/railzway/deployments/
-
-# (Optional) Copy SQL migrations jika ada
-scp -r sql/* taufik_triantono@<server-ip>:/opt/railzway/sql/
+# Generate random secrets
+openssl rand -base64 32  # untuk JWT secrets
+openssl rand -hex 32     # untuk API token
 ```
 
 ---
 
-## 3️⃣ **Deploy!**
+### **Step 2: Deploy!**
 
 ```bash
+# Copy deployment files
+scp deployments/nomad/* taufik_triantono@<server-ip>:/opt/railzway/deployments/
+
 # SSH ke server
 ssh taufik_triantono@<server-ip>
 
-# Run deployment script
+# Run deployment
 cd /opt/railzway/deployments
 ./deploy.sh v1.2.0
 ```
 
-Script akan otomatis:
-- ✅ Verify prerequisites
-- ✅ Populate Consul KV
-- ✅ Deploy ke Nomad
-- ✅ Health check
+**Script akan otomatis:**
+1. Verify prerequisites ✅
+2. Populate Consul KV dari .env ✅
+3. Deploy Nomad job ✅
+4. Health check ✅
 
 ---
 
-## ✅ **Verify Deployment**
+## 📊 Verify Deployment
 
 ```bash
-# Check Nomad job
+# Check job status
 nomad job status railzway-cloud
 
 # Check logs
@@ -105,52 +112,66 @@ nomad alloc logs $(nomad job allocs railzway-cloud | grep running | head -1 | aw
 # Health check
 curl http://localhost:8080/health
 
-# Check Consul service
-consul catalog service railzway-cloud
-
-# Access via Traefik (jika DNS sudah setup)
+# Check via Traefik
 curl https://cloud.railzway.com/health
 ```
 
 ---
 
-## 🔧 **Troubleshooting**
+## 🔧 Jika Ada Masalah
 
-### Job tidak start
+### PostgreSQL connection error
 ```bash
-# Check allocation events
-nomad alloc status <alloc-id> | grep Events -A 20
+# Check PostgreSQL service
+consul catalog service postgres
 
-# Check Docker image
-docker pull ghcr.io/railzwaylabs/railzway-cloud:v1.2.0
+# Get PostgreSQL IP
+nomad job allocs postgres | grep running
+
+# Test connection
+psql -h postgres.service.consul -U postgres -d cloud -c "SELECT 1"
 ```
 
-### Health check gagal
+### Redis connection error
 ```bash
-# Check logs
-nomad alloc logs <alloc-id>
+# Check Redis service
+consul catalog service redis
 
-# Check database connection
-psql -h localhost -U postgres -d cloud -c "SELECT 1"
+# Test connection
+redis-cli -h redis.service.consul ping
 ```
 
-### Consul KV kosong
+### Nomad job tidak start
 ```bash
-# Re-run setup
-cd /opt/railzway/deployments
-./setup-consul-kv.sh /opt/railzway/.env
+# Check allocation
+ALLOC_ID=$(nomad job allocs railzway-cloud | grep -E 'running|pending' | head -1 | awk '{print $1}')
+nomad alloc status $ALLOC_ID
 
-# Verify
-consul kv get -recurse railzway-cloud/
+# Check events
+nomad alloc status $ALLOC_ID | grep Events -A 20
 ```
 
 ---
 
-## 📊 **Next: Setup GitHub Actions**
+## 🎉 Setelah Deploy Sukses
 
-Update GitHub Secrets untuk auto-deployment:
+### Setup GitHub Actions (Auto-deploy)
+Update GitHub Secrets:
 - `GCE_HOST_PROD_1` = `<server-ip>`
 - `GCE_USERNAME_PROD_1` = `taufik_triantono`
-- `GCE_SSH_KEY_PROD_1` = (private key dari `~/.ssh/railzway-deploy`)
+- `GCE_SSH_KEY_PROD_1` = (private key)
 
-Setelah itu, setiap merge ke `main` akan auto-deploy! 🚀
+Setelah itu, setiap merge ke `main` → auto deploy! 🚀
+
+### Monitor
+```bash
+# Watch logs
+nomad alloc logs -f <alloc-id>
+
+# Watch metrics
+consul catalog service railzway-cloud -detailed
+```
+
+---
+
+**Ready? Merge PR dan deploy!** 🎯

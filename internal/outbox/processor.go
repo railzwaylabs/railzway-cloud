@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smallbiznis/railzway-cloud/internal/domain/instance"
-	"github.com/smallbiznis/railzway-cloud/internal/usecase/deployment"
-	"github.com/smallbiznis/railzway-cloud/pkg/railzwayclient"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
+	"github.com/railzwaylabs/railzway-cloud/internal/usecase/deployment"
+	"github.com/railzwaylabs/railzway-cloud/pkg/railzwayclient"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -176,14 +176,23 @@ func (p *Processor) handleDeployInstance(ctx context.Context, event Event) error
 		return p.markEventFailed(ctx, event, err)
 	}
 
-	if err := p.deployUC.Execute(ctx, inst.OrgID, inst.DesiredVersion); err != nil {
-		return p.markEventFailed(ctx, event, err)
-	}
-
+	// Activate subscription BEFORE deployment to ensure billing is active
+	// before the instance starts running
 	if inst.SubscriptionID != "" {
 		if err := p.ossClient.ActivateSubscription(ctx, inst.SubscriptionID); err != nil {
-			return p.markEventFailed(ctx, event, err)
+			return p.markEventFailed(ctx, event, fmt.Errorf("activate subscription: %w", err))
 		}
+		p.logger.Info("subscription_activated",
+			zap.String("subscription_id", inst.SubscriptionID),
+			zap.Int64("org_id", inst.OrgID),
+		)
+	}
+
+	// Deploy instance - if this fails, we need to rollback the subscription
+	if err := p.deployUC.Execute(ctx, inst.OrgID, inst.DesiredVersion); err != nil {
+		// Rollback: cancel subscription immediately since deployment failed
+		p.rollbackSubscription(ctx, inst.SubscriptionID)
+		return p.markEventFailed(ctx, event, fmt.Errorf("deployment failed: %w", err))
 	}
 
 	return p.markEventCompleted(ctx, event.ID)
@@ -240,7 +249,20 @@ func (p *Processor) ensureCustomer(ctx context.Context, org *organizationRecord)
 
 func (p *Processor) ensureSubscription(ctx context.Context, inst *instance.Instance, org *organizationRecord) error {
 	if inst.SubscriptionID != "" {
-		return nil
+		subscription, err := p.ossClient.GetSubscription(ctx, inst.SubscriptionID)
+		if err != nil {
+			return fmt.Errorf("load subscription: %w", err)
+		}
+		if subscription != nil && shouldReplaceSubscription(subscription.Status) {
+			p.logger.Warn("subscription_inactive_replacing",
+				zap.String("subscription_id", inst.SubscriptionID),
+				zap.String("status", subscription.Status),
+				zap.Int64("org_id", inst.OrgID),
+			)
+			inst.SubscriptionID = ""
+		} else {
+			return nil
+		}
 	}
 
 	priceID := strings.TrimSpace(inst.PriceID)
@@ -282,12 +304,19 @@ func (p *Processor) ensureSubscription(ctx context.Context, inst *instance.Insta
 	return nil
 }
 
+func shouldReplaceSubscription(status string) bool {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
+	case "CANCELED", "CANCELLED", "ENDED":
+		return true
+	default:
+		return false
+	}
+}
+
 func (p *Processor) markInstanceProvisioning(ctx context.Context, instanceID int64) error {
 	allowed := []instance.InstanceStatus{instance.StatusInit, instance.StatusProvisionFailed}
 	return p.markInstanceStatus(ctx, instanceID, allowed, instance.StatusProvisioning, "")
 }
-
-
 
 func (p *Processor) markInstanceProvisionFailed(ctx context.Context, instanceID int64, errMsg string) error {
 	allowed := []instance.InstanceStatus{instance.StatusInit, instance.StatusProvisioning}
@@ -395,3 +424,26 @@ func backoffDuration(attempt int) time.Duration {
 	return d
 }
 
+// rollbackSubscription cancels a subscription immediately when deployment fails.
+// This prevents users from being charged for instances that failed to deploy.
+func (p *Processor) rollbackSubscription(ctx context.Context, subscriptionID string) {
+	if subscriptionID == "" {
+		return
+	}
+
+	p.logger.Info("rolling_back_subscription",
+		zap.String("subscription_id", subscriptionID),
+	)
+
+	// Cancel immediately (not at period end) since deployment failed
+	if err := p.ossClient.CancelSubscription(ctx, subscriptionID, false); err != nil {
+		p.logger.Error("failed_to_rollback_subscription",
+			zap.String("subscription_id", subscriptionID),
+			zap.Error(err),
+		)
+	} else {
+		p.logger.Info("subscription_rolled_back",
+			zap.String("subscription_id", subscriptionID),
+		)
+	}
+}

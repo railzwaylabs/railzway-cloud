@@ -3,7 +3,7 @@ package provisioning
 import (
 	"context"
 
-	"github.com/smallbiznis/railzway-cloud/internal/domain/instance"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
 )
 
 // DeploymentConfig defines the parameters required for a deployment.

@@ -7,26 +7,31 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/instance"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
 	"go.uber.org/zap"
 )
 
 type instanceStatusPayload struct {
-	ID             int64                   `json:"id,string"`
-	OrgID          int64                   `json:"org_id,string"`
-	NomadJobID     string                  `json:"nomad_job_id"`
-	DesiredVersion string                  `json:"desired_version"`
-	CurrentVersion string                  `json:"current_version"`
-	Status         instance.InstanceStatus `json:"status"`
-	Tier           instance.Tier           `json:"tier"`
-	ComputeEngine  instance.ComputeEngine  `json:"compute_engine"`
-	PlanID         string                  `json:"plan_id"`
-	PriceID        string                  `json:"price_id"`
-	SubscriptionID string                  `json:"subscription_id"`
-	LaunchURL      string                  `json:"launch_url"`
-	LastError      string                  `json:"last_error,omitempty"`
-	CreatedAt      time.Time               `json:"created_at"`
-	UpdatedAt      time.Time               `json:"updated_at"`
+	ID                 int64                    `json:"id,string"`
+	OrgID              int64                    `json:"org_id,string"`
+	NomadJobID         string                   `json:"nomad_job_id"`
+	DesiredVersion     string                   `json:"desired_version"`
+	CurrentVersion     string                   `json:"current_version"`
+	Status             instance.InstanceStatus  `json:"status"`
+	Role               instance.InstanceRole    `json:"role"`
+	LifecycleState     instance.LifecycleState  `json:"lifecycle_state"`
+	Readiness          instance.ReadinessStatus `json:"readiness"`
+	ReadinessCheckedAt *time.Time               `json:"readiness_checked_at,omitempty"`
+	ReadinessError     string                   `json:"readiness_error,omitempty"`
+	Tier               instance.Tier            `json:"tier"`
+	ComputeEngine      instance.ComputeEngine   `json:"compute_engine"`
+	PlanID             string                   `json:"plan_id"`
+	PriceID            string                   `json:"price_id"`
+	SubscriptionID     string                   `json:"subscription_id"`
+	LaunchURL          string                   `json:"launch_url"`
+	LastError          string                   `json:"last_error,omitempty"`
+	CreatedAt          time.Time                `json:"created_at"`
+	UpdatedAt          time.Time                `json:"updated_at"`
 }
 
 func instanceStatusResponse(inst *instance.Instance) *instanceStatusPayload {
@@ -34,21 +39,26 @@ func instanceStatusResponse(inst *instance.Instance) *instanceStatusPayload {
 		return nil
 	}
 	return &instanceStatusPayload{
-		ID:             inst.ID,
-		OrgID:          inst.OrgID,
-		NomadJobID:     inst.NomadJobID,
-		DesiredVersion: inst.DesiredVersion,
-		CurrentVersion: inst.CurrentVersion,
-		Status:         inst.Status,
-		Tier:           inst.Tier,
-		ComputeEngine:  inst.ComputeEngine,
-		PlanID:         inst.PlanID,
-		PriceID:        inst.PriceID,
-		SubscriptionID: inst.SubscriptionID,
-		LaunchURL:      inst.LaunchURL,
-		LastError:      inst.LastError,
-		CreatedAt:      inst.CreatedAt,
-		UpdatedAt:      inst.UpdatedAt,
+		ID:                 inst.ID,
+		OrgID:              inst.OrgID,
+		NomadJobID:         inst.NomadJobID,
+		DesiredVersion:     inst.DesiredVersion,
+		CurrentVersion:     inst.CurrentVersion,
+		Status:             inst.Status,
+		Role:               inst.Role,
+		LifecycleState:     inst.LifecycleState,
+		Readiness:          inst.Readiness,
+		ReadinessCheckedAt: inst.ReadinessCheckedAt,
+		ReadinessError:     inst.ReadinessError,
+		Tier:               inst.Tier,
+		ComputeEngine:      inst.ComputeEngine,
+		PlanID:             inst.PlanID,
+		PriceID:            inst.PriceID,
+		SubscriptionID:     inst.SubscriptionID,
+		LaunchURL:          inst.LaunchURL,
+		LastError:          inst.LastError,
+		CreatedAt:          inst.CreatedAt,
+		UpdatedAt:          inst.UpdatedAt,
 	}
 }
 

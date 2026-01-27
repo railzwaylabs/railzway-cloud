@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/instance"
-	"github.com/smallbiznis/railzway-cloud/internal/version"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
+	"github.com/railzwaylabs/railzway-cloud/internal/version"
 	"gorm.io/gorm"
 )
 

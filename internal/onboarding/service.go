@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/instance"
-	"github.com/smallbiznis/railzway-cloud/internal/outbox"
-	"github.com/smallbiznis/railzway-cloud/internal/user"
-	"github.com/smallbiznis/railzway-cloud/internal/version"
-	"github.com/smallbiznis/railzway-cloud/pkg/snowflake"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
+	"github.com/railzwaylabs/railzway-cloud/internal/outbox"
+	"github.com/railzwaylabs/railzway-cloud/internal/user"
+	"github.com/railzwaylabs/railzway-cloud/internal/version"
+	"github.com/railzwaylabs/railzway-cloud/pkg/snowflake"
 	"gorm.io/gorm"
 )
 
@@ -26,6 +26,39 @@ func slugify(s string) string {
 	// Trim dashes
 	s = strings.Trim(s, "-")
 	return s
+}
+
+var orgSlugRegex = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+func normalizeOrgSlug(raw string, rootDomain string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		return "", fmt.Errorf("organization namespace is required")
+	}
+
+	root := strings.Trim(strings.ToLower(strings.TrimSpace(rootDomain)), ".")
+	if strings.Contains(value, ".") {
+		if root == "" {
+			return "", fmt.Errorf("namespace cannot include dots without root domain configured")
+		}
+
+		suffix := "." + root
+		if !strings.HasSuffix(value, suffix) {
+			return "", fmt.Errorf("namespace must end with %s", root)
+		}
+
+		prefix := strings.TrimSuffix(value, suffix)
+		if strings.Contains(prefix, ".") {
+			return "", fmt.Errorf("namespace must be a single subdomain")
+		}
+		value = prefix
+	}
+
+	if !orgSlugRegex.MatchString(value) {
+		return "", fmt.Errorf("namespace must be 1-63 chars of lowercase letters, numbers, or hyphen (no leading/trailing hyphen)")
+	}
+
+	return value, nil
 }
 
 func buildLaunchURL(cfg *config.Config, slug string) string {
@@ -81,6 +114,7 @@ type InitRequest struct {
 	PlanID  string // Deprecated: use PriceID instead
 	PriceID string // Actual price ID from pricing API
 	OrgName string
+	OrgSlug string
 }
 
 func (s *Service) InitializeOrganization(ctx context.Context, req InitRequest) (*Organization, error) {
@@ -96,14 +130,20 @@ func (s *Service) InitializeOrganization(ctx context.Context, req InitRequest) (
 		orgID := s.snowflake.GenerateID()
 
 		// 3. Generate Slug
-		slug := slugify(req.OrgName)
+		if strings.TrimSpace(req.OrgName) == "" {
+			return fmt.Errorf("organization name is required")
+		}
+		slug, err := normalizeOrgSlug(req.OrgSlug, s.cfg.AppRootDomain)
+		if err != nil {
+			return err
+		}
 
 		// 4. Create Organization (OSS fields resolved asynchronously via outbox).
 		org = Organization{
 			ID:        orgID,
 			OwnerID:   req.UserID,
 			Name:      req.OrgName,
-			Slug:      slug, // Will fix in next step with proper slugify
+			Slug:      slug,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
@@ -129,6 +169,9 @@ func (s *Service) InitializeOrganization(ctx context.Context, req InitRequest) (
 			ID:             s.snowflake.GenerateID(),
 			OrgID:          org.ID,
 			Status:         instance.StatusInit,
+			Role:           instance.RolePrimary,
+			LifecycleState: instance.LifecycleReady,
+			Readiness:      instance.ReadinessUnknown,
 			NomadJobID:     fmt.Sprintf("railzway-org-%d", org.ID),
 			DesiredVersion: desiredVersion,
 			Tier:           tier,
@@ -198,10 +241,19 @@ func (s *Service) GetOrganizationSlug(ctx context.Context, orgID int64) (string,
 }
 
 // CheckOrgName checks if an organization name/slug is available
-func (s *Service) CheckOrgName(ctx context.Context, name string) (bool, error) {
-	slug := slugify(name)
-	if slug == "" {
-		return false, fmt.Errorf("invalid organization name")
+func (s *Service) CheckOrgName(ctx context.Context, name string, namespace string) (bool, error) {
+	var slug string
+	if strings.TrimSpace(namespace) != "" {
+		parsed, err := normalizeOrgSlug(namespace, s.cfg.AppRootDomain)
+		if err != nil {
+			return false, err
+		}
+		slug = parsed
+	} else {
+		slug = slugify(name)
+		if slug == "" {
+			return false, fmt.Errorf("invalid organization name")
+		}
 	}
 
 	var count int64
@@ -211,8 +263,6 @@ func (s *Service) CheckOrgName(ctx context.Context, name string) (bool, error) {
 
 	return count == 0, nil
 }
-
-
 
 func tierForPlan(planID string) instance.Tier {
 	switch strings.ToLower(planID) {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smallbiznis/railzway-cloud/internal/domain/billing"
-	"github.com/smallbiznis/railzway-cloud/pkg/railzwayclient"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/billing"
+	"github.com/railzwaylabs/railzway-cloud/pkg/railzwayclient"
 )
 
 type Adapter struct {

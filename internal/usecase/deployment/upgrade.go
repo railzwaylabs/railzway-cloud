@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/billing"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/instance"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/provisioning"
-	"github.com/smallbiznis/railzway-cloud/internal/organization"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/billing"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/provisioning"
+	"github.com/railzwaylabs/railzway-cloud/internal/organization"
 )
 
 type UpgradeUseCase struct {

@@ -4,6 +4,12 @@ export interface Organization {
   slug: string;
 }
 
+export interface UserProfile {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+}
+
 export interface InstanceStatus {
   status: string;
   version: string;

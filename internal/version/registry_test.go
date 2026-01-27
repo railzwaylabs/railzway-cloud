@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smallbiznis/railzway-cloud/internal/version"
-	"github.com/smallbiznis/railzway-cloud/pkg/testhelper"
+	"github.com/railzwaylabs/railzway-cloud/internal/version"
+	"github.com/railzwaylabs/railzway-cloud/pkg/testhelper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"

@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/internal/user"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/user"
 	"go.uber.org/zap"
 )
 
@@ -89,6 +89,23 @@ func (m *SessionManager) HandleSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"authenticated": true, "user_id": userID})
+}
+
+func (m *SessionManager) HandleLogout(c *gin.Context) {
+	session, _ := m.store.Get(c.Request, SessionName)
+	session.Options.MaxAge = -1
+	_ = session.Save(c.Request, c.Writer)
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "railzway_is_logged_in",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: false,
+		Secure:   m.cfg.AuthCookieSecure,
+	})
+
+	c.Redirect(http.StatusFound, "/")
 }
 
 func (m *SessionManager) Middleware() gin.HandlerFunc {

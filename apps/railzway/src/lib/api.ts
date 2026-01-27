@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import type { Organization, InstanceStatus, Price, PriceAmount } from './types';
+import type { Organization, InstanceStatus, Price, PriceAmount, UserProfile } from './types';
 import { toast } from 'sonner';
 
 export const useOrganizations = () => {
@@ -9,6 +9,34 @@ export const useOrganizations = () => {
     queryFn: async () => {
       const res = await axios.get('/user/organizations');
       return res.data.data || [];
+    },
+  });
+};
+
+export const useUserProfile = () => {
+  return useQuery<UserProfile>({
+    queryKey: ['user-profile'],
+    queryFn: async () => {
+      const res = await axios.get('/user/profile');
+      return res.data.data;
+    },
+  });
+};
+
+export const useUpdateUserProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ first_name, last_name }: { first_name: string; last_name: string }) => {
+      const res = await axios.put('/user/profile', { first_name, last_name });
+      return res.data.data as UserProfile;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['user-profile'], data);
+      toast.success('Profile updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update profile');
     },
   });
 };
@@ -79,15 +107,21 @@ export const useInstanceAction = () => {
   });
 };
 
-export const useCheckOrgName = (name: string) => {
+export const useCheckOrgName = (namespace: string, rootDomain?: string) => {
+  const normalized = namespace.trim().toLowerCase();
+  const namespaceValue = normalized
+    ? (rootDomain ? `${normalized}.${rootDomain}` : normalized)
+    : '';
   return useQuery({
-    queryKey: ['check-org-name', name],
+    queryKey: ['check-org-name', namespaceValue],
     queryFn: async () => {
-      if (name.length < 3) return null;
-      const res = await axios.get(`/user/onboarding/check-org-name?name=${name}`);
+      if (normalized.length < 3) return null;
+      const res = await axios.get('/user/onboarding/check-org-name', {
+        params: { namespace: namespaceValue }
+      });
       return res.data.available as boolean;
     },
-    enabled: name.length >= 3,
+    enabled: normalized.length >= 3,
     staleTime: 60000,
   });
 };
@@ -95,11 +129,22 @@ export const useCheckOrgName = (name: string) => {
 export const useInitializeOrg = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ planID, priceID, orgName }: { planID: string; priceID: string; orgName: string }) => {
+    mutationFn: async ({
+      planID,
+      priceID,
+      orgName,
+      orgNamespace
+    }: {
+      planID: string;
+      priceID: string;
+      orgName: string;
+      orgNamespace: string;
+    }) => {
       const res = await axios.post('/user/onboarding/initialize', {
         plan_id: planID,
         price_id: priceID,
-        org_name: orgName
+        org_name: orgName,
+        org_namespace: orgNamespace
       });
       return res.data.data;
     },

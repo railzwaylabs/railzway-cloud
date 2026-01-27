@@ -3,8 +3,8 @@ package nomad
 import (
 	"context"
 
-	"github.com/smallbiznis/railzway-cloud/internal/domain/provisioning"
-	"github.com/smallbiznis/railzway-cloud/pkg/nomad"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/provisioning"
+	"github.com/railzwaylabs/railzway-cloud/pkg/nomad"
 )
 
 type Adapter struct {

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallbiznis/railzway-cloud/pkg/railzwayclient"
+	"github.com/railzwaylabs/railzway-cloud/pkg/railzwayclient"
 	"go.uber.org/zap"
 )
 

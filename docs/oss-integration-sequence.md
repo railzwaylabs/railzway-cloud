@@ -70,6 +70,8 @@ Code references:
 
 Upgrade and downgrade go through OSS for subscription changes, while infrastructure changes are done via Nomad.
 
+For zero-downtime upgrades, see `railzway-cloud/docs/zero-downtime-upgrade.md`.
+
 ```mermaid
 sequenceDiagram
   participant UI as Cloud UI

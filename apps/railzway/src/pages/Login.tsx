@@ -6,8 +6,11 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary px-6 py-12">
       <div className="surface-card w-full max-w-md p-8 text-center space-y-6">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-bg-surface-strong text-text-primary">
-          <span className="text-lg font-semibold">RZ</span>
+        <div className="mx-auto flex items-center justify-center gap-2 font-bold text-xl tracking-tight text-slate-900">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
+            R
+          </span>
+          Railzway
         </div>
         <div className="space-y-2">
           <h1 className="text-2xl font-bold">Welcome to Railzway Cloud</h1>

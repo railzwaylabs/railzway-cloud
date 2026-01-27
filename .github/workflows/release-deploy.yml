@@ -107,38 +107,36 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  # Step 4: Deploy to GCE
+  # Step 4: Deploy to Nomad
   deploy:
-    name: Deploy to GCE
+    name: Deploy to Nomad
     needs: [release, build]
     if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to GCE via SSH
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Nomad via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.GCE_HOST_PROD_1 }}
           username: ${{ secrets.GCE_USERNAME_PROD_1 }}
           key: ${{ secrets.GCE_SSH_KEY_PROD_1 }}
           script: |
-            # Pull latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ needs.release.outputs.new_release_version }}
-
-            # Stop existing container (if running)
-            docker stop railzway-cloud || true
-            docker rm railzway-cloud || true
-
-            # Start new container
-            docker run -d \
-              --name railzway-cloud \
-              --restart unless-stopped \
-              --env-file /opt/railzway/.env \
-              --network host \
-              -v /opt/railzway/sql:/app/sql:ro \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ needs.release.outputs.new_release_version }}
-
-            # Cleanup old images (keep last 3)
-            docker image prune -af --filter "until=72h"
+            # Set version for Nomad job
+            export VERSION=v${{ needs.release.outputs.new_release_version }}
+            
+            # Submit Nomad job with new version
+            nomad job run \
+              -var="version=${VERSION}" \
+              /opt/railzway/deployments/railzway-cloud.nomad
+            
+            # Wait for deployment to be healthy
+            echo "Waiting for deployment to stabilize..."
+            sleep 15
+            
+            # Check deployment status
+            nomad job status railzway-cloud
 
       - name: Verify Deployment
         uses: appleboy/ssh-action@v1.0.3
@@ -150,16 +148,27 @@ jobs:
             # Wait for service to be ready
             sleep 10
 
-            # Health check
+            # Health check via Nomad service
+            ALLOC_ID=$(nomad job allocs railzway-cloud | grep running | head -1 | awk '{print $1}')
+            
+            if [ -z "$ALLOC_ID" ]; then
+              echo "❌ No running allocation found!"
+              nomad job status railzway-cloud
+              exit 1
+            fi
+            
+            echo "✅ Allocation $ALLOC_ID is running"
+            
+            # Check health endpoint
             if curl -f http://localhost:8080/health; then
-              echo "✅ Deployment successful!"
+              echo "✅ Health check passed!"
             else
               echo "❌ Health check failed!"
-              docker logs railzway-cloud --tail 50
+              nomad alloc logs $ALLOC_ID
               exit 1
             fi
 
       - name: Notify Success
         if: success()
         run: |
-          echo "🚀 Successfully deployed v${{ needs.release.outputs.new_release_version }} to production!"
+          echo "🚀 Successfully deployed v${{ needs.release.outputs.new_release_version }} to Nomad!"

@@ -112,25 +112,42 @@ Go to your repository: `Settings` → `Secrets and variables` → `Actions` → 
 
 Add these secrets:
 
-- **GCE_SSH_KEY**: Content of `~/.ssh/railzway-deploy` (private key)
-- **GCE_HOST**: Your GCE instance's public IP
-- **GCE_USERNAME**: Your SSH username (usually your Google account name or `root`)
+- **GCE_SSH_KEY_PROD_1**: Content of `~/.ssh/railzway-deploy` (private key)
+- **GCE_HOST_PROD_1**: Your GCE instance's public IP
+- **GCE_USERNAME_PROD_1**: Your SSH username (usually your Google account name)
 
 ### 4. Deploy
 
-Push a new tag to trigger deployment:
+Deployment is now **fully automated** via Semantic Release. Simply merge to `main`:
 
+```bash
+# Create a feature branch
+git checkout -b feat/my-feature
+
+# Make changes and commit using conventional commits
+git commit -m "feat: add new feature"
+
+# Push and create PR
+git push origin feat/my-feature
+
+# After PR is merged to main, deployment happens automatically
+```
+
+GitHub Actions will:
+1. Run tests with coverage check
+2. Analyze commits and create version tag (e.g., `v1.2.3`)
+3. Build Docker image
+4. Push to GitHub Container Registry
+5. SSH to GCE and restart the service
+6. Verify deployment via health check
+7. Generate CHANGELOG.md
+
+**Manual Tag (Legacy)**:
+If you need to trigger deployment manually:
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
-
-GitHub Actions will:
-1. Run tests
-2. Build Docker image
-3. Push to GitHub Container Registry
-4. SSH to GCE and restart the service
-5. Verify deployment via health check
 
 ## Manual Deployment (Fallback)
 

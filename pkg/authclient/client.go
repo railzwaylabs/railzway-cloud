@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -58,9 +59,6 @@ func (c *Client) EnsureOAuthClient(ctx context.Context, req EnsureOAuthClientReq
 	if base == "" {
 		return nil, fmt.Errorf("auth service url missing")
 	}
-	if strings.TrimSpace(c.cfg.AdminToken) == "" {
-		return nil, fmt.Errorf("auth service admin token missing")
-	}
 	if strings.TrimSpace(c.cfg.TenantSlug) == "" {
 		return nil, fmt.Errorf("auth service tenant missing")
 	}
@@ -86,8 +84,13 @@ func (c *Client) EnsureOAuthClient(ctx context.Context, req EnsureOAuthClientReq
 		return nil, fmt.Errorf("build auth client request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-Admin-Token", c.cfg.AdminToken)
 	httpReq.Header.Set("X-Tenant-ID", c.cfg.TenantSlug)
+
+	token, err := c.clientCredentialsToken(ctx, base)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
@@ -104,9 +107,67 @@ func (c *Client) EnsureOAuthClient(ctx context.Context, req EnsureOAuthClientReq
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return nil, fmt.Errorf("decode auth client response: %w", err)
 	}
-	if strings.TrimSpace(out.ClientID) == "" || strings.TrimSpace(out.ClientSecret) == "" {
-		return nil, fmt.Errorf("auth client response missing credentials")
+	if strings.TrimSpace(out.ClientID) == "" {
+		return nil, fmt.Errorf("auth client response missing client_id")
 	}
 
 	return &out, nil
+}
+
+type tokenResponse struct {
+	AccessToken      string `json:"access_token"`
+	TokenType        string `json:"token_type"`
+	ExpiresIn        int    `json:"expires_in"`
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
+}
+
+func (c *Client) clientCredentialsToken(ctx context.Context, base string) (string, error) {
+	clientID := strings.TrimSpace(c.cfg.ClientID)
+	clientSecret := strings.TrimSpace(c.cfg.ClientSecret)
+	if clientID == "" || clientSecret == "" {
+		return "", fmt.Errorf("auth service client credentials missing")
+	}
+	scope := strings.TrimSpace(c.cfg.ClientScope)
+	if scope == "" {
+		scope = "admin"
+	}
+
+	form := url.Values{}
+	form.Set("grant_type", "client_credentials")
+	form.Set("scope", scope)
+	form.Set("client_id", clientID)
+	form.Set("client_secret", clientSecret)
+
+	tokenURL := fmt.Sprintf("%s/token", strings.TrimRight(base, "/"))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("build token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Tenant-ID", c.cfg.TenantSlug)
+	req.SetBasicAuth(clientID, clientSecret)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("token request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("token request error (%d): %s", resp.StatusCode, string(raw))
+	}
+
+	var out tokenResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return "", fmt.Errorf("decode token response: %w", err)
+	}
+	if strings.TrimSpace(out.AccessToken) == "" {
+		if out.Error != "" {
+			return "", fmt.Errorf("token error: %s", out.ErrorDescription)
+		}
+		return "", fmt.Errorf("token response missing access_token")
+	}
+	return out.AccessToken, nil
 }

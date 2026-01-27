@@ -4,18 +4,32 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smallbiznis/railzway-cloud/internal/onboarding"
+	"github.com/railzwaylabs/railzway-cloud/internal/onboarding"
 	"go.uber.org/zap"
 )
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func (r *Router) CheckOrgName(c *gin.Context) {
 	name := c.Query("name")
-	if name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "name parameter required"})
+	namespace := c.Query("namespace")
+	if namespace == "" {
+		namespace = c.Query("slug")
+	}
+
+	if name == "" && namespace == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name or namespace parameter required"})
 		return
 	}
 
-	available, err := r.onboardingSvc.CheckOrgName(c.Request.Context(), name)
+	available, err := r.onboardingSvc.CheckOrgName(c.Request.Context(), name, namespace)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -24,14 +38,17 @@ func (r *Router) CheckOrgName(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"available": available,
 		"name":      name,
+		"namespace": namespace,
 	})
 }
 
 func (r *Router) InitializeOrganization(c *gin.Context) {
 	var req struct {
-		PlanID  string `json:"plan_id"`  // Deprecated: use price_id
-		PriceID string `json:"price_id"` // Actual price ID from pricing API
-		OrgName string `json:"org_name"`
+		PlanID       string `json:"plan_id"` // Deprecated: use price_id
+		PriceID      string `json:"price_id"` // Actual price ID from pricing API
+		OrgName      string `json:"org_name"`
+		OrgSlug      string `json:"org_slug"`
+		OrgNamespace string `json:"org_namespace"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -59,6 +76,7 @@ func (r *Router) InitializeOrganization(c *gin.Context) {
 		PlanID:  req.PlanID,
 		PriceID: priceID,
 		OrgName: req.OrgName,
+		OrgSlug: firstNonEmpty(req.OrgNamespace, req.OrgSlug),
 	}
 
 	org, err := r.onboardingSvc.InitializeOrganization(c.Request.Context(), initReq)

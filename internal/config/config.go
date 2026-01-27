@@ -65,7 +65,6 @@ type Config struct {
 // Load loads configuration from environment variables and .env file.
 func Load() *Config {
 	_ = godotenv.Load()
-
 	environment := getenv("ENVIRONMENT", "development")
 	authCookieSecure := environment == "production"
 	if !authCookieSecure {
@@ -74,7 +73,7 @@ func Load() *Config {
 
 	dbHost := getenv("DB_HOST", "localhost")
 	dbPort := getenv("DB_PORT", "5433")
-	dbName := getenv("DB_NAME", "postgres")
+	dbName := getenv("DB_NAME", "cloud")
 	dbUser := getenv("DB_USER", "postgres")
 	dbPassword := getenv("DB_PASSWORD", "35411231")
 	dbSSLMode := getenv("DB_SSL_MODE", "disable")
@@ -96,7 +95,7 @@ func Load() *Config {
 	cfg := Config{
 		AppName:                         getenv("APP_SERVICE", "railzway-cloud"),
 		AppVersion:                      getenv("APP_VERSION", "0.1.0"),
-		Port:                            getenv("PORT", "8080"),
+		Port:                            getenv("PORT", "8081"),
 		Environment:                     environment,
 		AuthCookieSecure:                authCookieSecure,
 		AuthJWTSecret:                   strings.TrimSpace(getenv("AUTH_JWT_SECRET", "")),

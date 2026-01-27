@@ -13,10 +13,14 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const [plan, setPlan] = useState<string>('');
   const [orgName, setOrgName] = useState('');
+  const [orgNamespace, setOrgNamespace] = useState('');
   const navigate = useNavigate();
 
   const { data: orgs = [] } = useOrganizations();
-  const { data: isAvailable, isFetching: isChecking } = useCheckOrgName(orgName);
+  const rootDomain = (import.meta.env.VITE_ROOT_DOMAIN || 'railzway.com').replace(/^\./, '');
+  const namespaceValue = orgNamespace.trim().toLowerCase();
+  const fullNamespace = namespaceValue ? `${namespaceValue}.${rootDomain}` : '';
+  const { data: isAvailable, isFetching: isChecking } = useCheckOrgName(namespaceValue, rootDomain);
   const { mutate: initialize, isPending: loading } = useInitializeOrg();
 
   // Pricing API Integration
@@ -70,15 +74,15 @@ export default function Onboarding() {
   const { container: staggerContainer, item: staggerItem } = getStaggerVariants(reduceMotion);
 
   const errorMessage = useMemo(() => {
-    if (orgName.length > 0 && orgName.length < 3) return 'Namespace must be at least 3 characters';
+    if (namespaceValue.length > 0 && namespaceValue.length < 3) return 'Namespace must be at least 3 characters';
     if (isAvailable === false) return 'This namespace is already taken';
     return '';
-  }, [orgName, isAvailable]);
+  }, [namespaceValue, isAvailable]);
 
   const handleInitialize = () => {
     const planID = selectedPlan?.name ?? '';
     const priceID = plan;
-    initialize({ planID, priceID, orgName }, {
+    initialize({ planID, priceID, orgName, orgNamespace: fullNamespace }, {
       onSuccess: (data) => {
         toast.success("Instance provisioning initiated");
         const org = Array.isArray(data) ? data[0] : data;
@@ -117,12 +121,12 @@ export default function Onboarding() {
             )}
             <p className="text-xs font-mono uppercase tracking-[0.32em] text-text-muted">Railzway Cloud Onboarding</p>
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-text-primary">
-              {step === 1 ? 'Claim your instance namespace' : 'Choose your infrastructure profile'}
+              {step === 1 ? 'Choose your infrastructure profile' : 'Claim your instance namespace'}
             </h1>
             <p className="text-text-secondary max-w-2xl text-base md:text-lg leading-relaxed">
               {step === 1
-                ? 'Choose a unique subdomain for your Railzway instance.'
-                : 'Pick the isolation profile that matches your workload. You can upgrade at any time as usage grows.'}
+                ? 'Pick the isolation profile that matches your workload. You can upgrade at any time as usage grows.'
+                : 'Choose a unique subdomain for your Railzway instance.'}
             </p>
           </div>
 
@@ -131,13 +135,13 @@ export default function Onboarding() {
               "rounded-full border px-3 py-1 transition-colors",
               step === 1 ? "border-accent-primary bg-accent-primary text-white" : "border-border-subtle text-text-muted"
             )}>
-              1 Namespace
+              1 Plan
             </span>
             <span className={clsx(
               "rounded-full border px-3 py-1 transition-colors",
               step === 2 ? "border-accent-primary bg-accent-primary text-white" : "border-border-subtle text-text-muted"
             )}>
-              2 Provision
+              2 Namespace
             </span>
           </div>
         </motion.header>
@@ -198,73 +202,6 @@ export default function Onboarding() {
 
           <motion.div className="surface-card p-6 md:p-8" variants={staggerItem}>
             {step === 1 && (
-              <div className="space-y-8 animate-slide-up">
-                <div className="space-y-3">
-                  <label className="block text-xs font-mono font-medium text-text-muted uppercase tracking-[0.2em]">
-                    Instance Namespace
-                  </label>
-                  <div className="flex items-center">
-                    <input
-                      type="text"
-                      value={orgName}
-                      onChange={(e) => {
-                        const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-                        setOrgName(sanitized);
-                      }}
-                      className={clsx(
-                        "flex-1 bg-bg-surface border border-r-0 rounded-l-xl py-3 px-4 text-text-primary font-mono text-sm focus:ring-2 focus:ring-accent-primary/20 outline-none transition-all placeholder:text-text-muted/40",
-                        !isAvailable && errorMessage ? "border-red-500 focus:border-red-500" :
-                          isAvailable ? "border-status-success focus:border-status-success" :
-                            "border-border-strong focus:border-accent-primary"
-                      )}
-                      placeholder="acme-corp"
-                      autoFocus
-                      spellCheck={false}
-                    />
-                    <div className={clsx(
-                      "bg-bg-surface-strong/70 border border-l-0 rounded-r-xl px-3 py-3 text-text-muted font-mono text-sm select-none",
-                      !isAvailable && errorMessage ? "border-red-500" :
-                        isAvailable ? "border-status-success" :
-                          "border-border-strong"
-                    )}>
-                      {import.meta.env.VITE_ROOT_DOMAIN || '.railzway.com'}
-                    </div>
-                  </div>
-                  <div className="text-xs">
-                    {isChecking ? (
-                      <p className="text-text-muted flex items-center gap-1">
-                        <span className="w-3 h-3 border-2 border-text-muted border-t-transparent rounded-full animate-spin"></span>
-                        Checking availability...
-                      </p>
-                    ) : !isAvailable && errorMessage ? (
-                      <p className="text-red-500 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {errorMessage}
-                      </p>
-                    ) : isAvailable ? (
-                      <p className="text-status-success flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        Namespace available
-                      </p>
-                    ) : (
-                      <p className="text-text-muted">
-                        Lowercase letters (a-z), numbers (0-9), and hyphens only. Minimum 3 characters.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <button
-                  disabled={!orgName || !isAvailable || isChecking}
-                  onClick={() => setStep(2)}
-                  className="w-full rounded-lg bg-accent-primary hover:bg-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-text-inverse font-mono text-sm font-medium py-3 flex items-center justify-center gap-2 transition-all shadow-sm"
-                >
-                  Continue <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {step === 2 && (
               <div className="space-y-8 animate-slide-up">
                 {loadingPrices || loadingAmounts ? (
                   <div className="flex flex-col items-center justify-center py-20 text-text-muted">
@@ -363,8 +300,93 @@ export default function Onboarding() {
                 )}
 
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-border-subtle">
+                  <div className="flex gap-3">
+                    <button
+                      disabled={!plan || loading || loadingPrices || loadingAmounts}
+                      onClick={() => setStep(2)}
+                      className="px-6 py-2.5 rounded-lg bg-accent-primary hover:bg-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-text-inverse font-mono text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+                    >
+                      Continue <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-8 animate-slide-up">
+                <div className="space-y-4">
+                  <label className="block text-xs font-mono font-medium text-text-muted uppercase tracking-[0.2em]">
+                    Organization Name
+                  </label>
+                  <input
+                    type="text"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    className="w-full bg-bg-surface border border-border-strong rounded-xl py-3 px-4 text-text-primary font-mono text-sm focus:ring-2 focus:ring-accent-primary/20 outline-none transition-all placeholder:text-text-muted/40"
+                    placeholder="Acme"
+                    autoFocus
+                    spellCheck={false}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-xs font-mono font-medium text-text-muted uppercase tracking-[0.2em]">
+                    Instance Namespace
+                  </label>
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      value={orgNamespace}
+                      onChange={(e) => {
+                        const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                        setOrgNamespace(sanitized);
+                      }}
+                      className={clsx(
+                        "flex-1 bg-bg-surface border border-r-0 rounded-l-xl py-3 px-4 text-text-primary font-mono text-sm focus:ring-2 focus:ring-accent-primary/20 outline-none transition-all placeholder:text-text-muted/40",
+                        !isAvailable && errorMessage ? "border-red-500 focus:border-red-500" :
+                          isAvailable ? "border-status-success focus:border-status-success" :
+                            "border-border-strong focus:border-accent-primary"
+                      )}
+                      placeholder="acme"
+                      spellCheck={false}
+                    />
+                    <div className={clsx(
+                      "bg-bg-surface-strong/70 border border-l-0 rounded-r-xl px-3 py-3 text-text-muted font-mono text-sm select-none",
+                      !isAvailable && errorMessage ? "border-red-500" :
+                        isAvailable ? "border-status-success" :
+                          "border-border-strong"
+                    )}>
+                      .{rootDomain}
+                    </div>
+                  </div>
+                  <div className="text-xs">
+                    {isChecking ? (
+                      <p className="text-text-muted flex items-center gap-1">
+                        <span className="w-3 h-3 border-2 border-text-muted border-t-transparent rounded-full animate-spin"></span>
+                        Checking availability...
+                      </p>
+                    ) : !isAvailable && errorMessage ? (
+                      <p className="text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {errorMessage}
+                      </p>
+                    ) : isAvailable ? (
+                      <p className="text-status-success flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Namespace available
+                      </p>
+                    ) : (
+                      <p className="text-text-muted">
+                        Lowercase letters (a-z), numbers (0-9), and hyphens only. Minimum 3 characters.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-border-subtle">
                   <p className="text-xs text-text-muted">
-                    Provisioning will create a dedicated Railzway instance bound to <strong>{orgName}</strong>.
+                    Provisioning will create a dedicated Railzway instance at <strong>{fullNamespace || '—'}</strong>.
                   </p>
                   <div className="flex gap-3">
                     <button
@@ -374,7 +396,7 @@ export default function Onboarding() {
                       Back
                     </button>
                     <button
-                      disabled={!plan || loading}
+                      disabled={!plan || !orgName || !namespaceValue || !isAvailable || isChecking || loading}
                       onClick={handleInitialize}
                       className="px-6 py-2.5 rounded-lg bg-accent-primary hover:bg-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-text-inverse font-mono text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
                     >

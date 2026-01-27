@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smallbiznis/railzway-cloud/pkg/db/pagination"
+	"github.com/railzwaylabs/railzway-cloud/pkg/db/pagination"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

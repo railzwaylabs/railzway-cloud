@@ -158,6 +158,73 @@ For Cloud API:
 - Traefik routing: check router for `org-{id}`
 - Tenant health: `curl https://{org_slug}.{APP_ROOT_DOMAIN}/health`
 
+## 7. Zero-Downtime Upgrade (Control-Plane Orchestration)
+
+Railzway Cloud upgrades OSS instances without downtime by coordinating **readiness**, **routing**, and **scheduler lease handoff**. Cloud only orchestrates; **billing facts stay in OSS**.
+
+### 7.1 Lifecycle States (Control-Plane)
+
+States stored in Cloud DB (instances table):
+- **READY**: OSS instance alive and compatible, not serving production traffic.
+- **MIGRATING**: migrations / compatibility prep running.
+- **SERVING**: active production traffic + scheduler lease.
+- **DRAINING**: stop new traffic, finish inflight jobs, release scheduler lease.
+- **TERMINATED**: instance retired.
+
+Allowed transitions:
+
+```
+READY -> SERVING
+READY -> MIGRATING -> SERVING
+SERVING -> DRAINING -> TERMINATED | READY
+```
+
+### 7.2 Readiness Contract
+
+**OSS endpoints:**
+- `GET /health` → liveness only.
+- `GET /ready` → **must** validate:
+  - Schema gate is active (migrations applied).
+  - No TestClock running in production.
+  - Scheduler single-lease (optional check; enforced by Cloud).
+
+If `/ready` returns `ready=false`, Cloud **must stop routing** to that instance.
+
+### 7.3 Upgrade Choreography (Zero Downtime)
+
+1. Deploy new OSS as **READY** (standby, no traffic, no scheduler lease).
+2. Run **expand-only migrations** (Cloud or operator).
+3. Warm up new instance (health/readiness checks).
+4. Shift traffic gradually:
+   - Read → canary/weighted.
+   - Write → only after stable.
+5. Scheduler handoff:
+   - Old instance enters **DRAINING**.
+   - Releases scheduler lease.
+   - New instance acquires lease.
+6. Promote new instance to **SERVING**.
+7. Terminate old instance.
+
+### 7.4 Rollback Rules
+
+- Because migrations are **expand-only**, no DB restore is needed.
+- If readiness fails or errors increase:
+  - Route traffic back to previous instance.
+  - Re-attach scheduler lease to previous instance.
+  - Keep new instance in READY or DRAINING.
+
+### 7.5 Hard Rules
+
+Cloud **must not**:
+- Write usage, rating, invoice, ledger.
+- Execute pricing logic.
+
+Cloud **may**:
+- Route traffic.
+- Control lifecycle state.
+- Manage scheduler lease.
+- Record observability/audit trails.
+
 ## 7. Code References
 
 - `railzway-cloud/pkg/nomad/generator.go`

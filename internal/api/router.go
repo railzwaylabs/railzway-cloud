@@ -10,12 +10,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/smallbiznis/railzway-cloud/internal/api/middleware"
-	"github.com/smallbiznis/railzway-cloud/internal/auth"
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/internal/onboarding"
-	"github.com/smallbiznis/railzway-cloud/internal/usecase/deployment"
-	"github.com/smallbiznis/railzway-cloud/pkg/railzwayclient"
+	"github.com/railzwaylabs/railzway-cloud/internal/api/middleware"
+	"github.com/railzwaylabs/railzway-cloud/internal/auth"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/onboarding"
+	"github.com/railzwaylabs/railzway-cloud/internal/usecase/deployment"
+	"github.com/railzwaylabs/railzway-cloud/internal/user"
+	"github.com/railzwaylabs/railzway-cloud/pkg/railzwayclient"
 	"go.uber.org/zap"
 )
 
@@ -28,6 +29,7 @@ type Router struct {
 	upgradeUC     *deployment.UpgradeUseCase
 	rolloutUC     *deployment.RolloutUseCase
 	onboardingSvc *onboarding.Service
+	userSvc       *user.Service
 	sessionMgr    *auth.SessionManager
 	client        *railzwayclient.Client
 	logger        *zap.Logger
@@ -40,6 +42,7 @@ func NewRouter(
 	upgradeUC *deployment.UpgradeUseCase,
 	rolloutUC *deployment.RolloutUseCase,
 	onboardingSvc *onboarding.Service,
+	userSvc *user.Service,
 	sessionMgr *auth.SessionManager,
 	client *railzwayclient.Client,
 	logger *zap.Logger,
@@ -64,6 +67,7 @@ func NewRouter(
 		upgradeUC:     upgradeUC,
 		rolloutUC:     rolloutUC,
 		onboardingSvc: onboardingSvc,
+		userSvc:       userSvc,
 		sessionMgr:    sessionMgr,
 		client:        client,
 		logger:        logger,
@@ -88,6 +92,7 @@ func (r *Router) RegisterRoutes() {
 		auth.GET("/login", r.sessionMgr.HandleLogin)
 		auth.GET("/callback", r.sessionMgr.HandleCallback)
 		auth.GET("/session", r.sessionMgr.HandleSession)
+		auth.GET("/logout", r.sessionMgr.HandleLogout)
 	}
 
 	// Pricing Routes (Proxied to Railzway OSS)
@@ -105,6 +110,8 @@ func (r *Router) RegisterRoutes() {
 	user.Use(r.sessionMgr.Middleware())
 	{
 		user.GET("/organizations", r.GetUserOrganizations)
+		user.GET("/profile", r.GetUserProfile)
+		user.PUT("/profile", r.UpdateUserProfile)
 		user.GET("/instance", r.GetInstanceStatus)
 		user.GET("/instance/stream", r.StreamInstanceStatus)
 		user.POST("/instance/deploy", r.DeployInstance)

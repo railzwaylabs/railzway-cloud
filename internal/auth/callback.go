@@ -79,6 +79,18 @@ func (m *SessionManager) HandleCallback(c *gin.Context) {
 
 	logger.Info("user_synced", zap.Int64("user_id", user.ID))
 
+	if user.FirstName == "" && user.LastName == "" {
+		firstName, lastName := splitName(claims.Name)
+		if firstName != "" || lastName != "" {
+			updated, err := m.userService.UpdateProfile(c.Request.Context(), user.ID, firstName, lastName)
+			if err != nil {
+				logger.Warn("user_profile_sync_failed", zap.Error(err))
+			} else {
+				user = updated
+			}
+		}
+	}
+
 	// 4. Create Session
 	if err := m.CreateSession(c, user.ID); err != nil {
 		logger.Error("session_creation_failed",
@@ -97,7 +109,7 @@ func (m *SessionManager) HandleCallback(c *gin.Context) {
 
 // exchangeCodeForTokens exchanges the authorization code for access and ID tokens
 func (m *SessionManager) exchangeCodeForTokens(ctx context.Context, code string) (*Auth0TokenResponse, error) {
-	tokenURL := fmt.Sprintf("%s/oauth/token", m.cfg.OAuth2URI)
+	tokenURL := fmt.Sprintf("%s/token", m.cfg.OAuth2URI)
 
 	// Prepare form data
 	data := url.Values{}
@@ -131,6 +143,17 @@ func (m *SessionManager) exchangeCodeForTokens(ctx context.Context, code string)
 	}
 
 	return &tokenResp, nil
+}
+
+func splitName(raw string) (string, string) {
+	parts := strings.Fields(strings.TrimSpace(raw))
+	if len(parts) == 0 {
+		return "", ""
+	}
+	if len(parts) == 1 {
+		return parts[0], ""
+	}
+	return parts[0], strings.Join(parts[1:], " ")
 }
 
 type UserInfoClaims struct {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smallbiznis/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
 	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
 	"go.uber.org/fx"
 	"go.uber.org/zap"

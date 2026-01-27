@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/instance"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/provisioning"
-	"github.com/smallbiznis/railzway-cloud/internal/organization"
-	"github.com/smallbiznis/railzway-cloud/pkg/authclient"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/provisioning"
+	"github.com/railzwaylabs/railzway-cloud/internal/organization"
+	"github.com/railzwaylabs/railzway-cloud/pkg/authclient"
 )
 
 type DeployUseCase struct {
@@ -103,7 +103,12 @@ func (uc *DeployUseCase) Execute(ctx context.Context, orgID int64, version strin
 	}
 	inst.LaunchURL = launchURL
 	inst.OAuthClientID = client.ClientID
-	inst.OAuthClientSecret = client.ClientSecret
+	if strings.TrimSpace(client.ClientSecret) != "" {
+		inst.OAuthClientSecret = client.ClientSecret
+	}
+	if strings.TrimSpace(inst.OAuthClientSecret) == "" {
+		return fmt.Errorf("auth client secret missing for org %d", inst.OrgID)
+	}
 
 	deployCfg := provisioning.DeploymentConfig{
 		OrgID:         inst.OrgID,
@@ -133,12 +138,12 @@ func (uc *DeployUseCase) Execute(ctx context.Context, orgID int64, version strin
 		return fmt.Errorf("deployment failed: %w", err)
 	}
 
-	// 4. Update State (Provisioning)
+	// 4. Update State
 	inst.DesiredVersion = version
 	inst.Status = instance.StatusProvisioning
 	inst.UpdatedAt = time.Now().UTC()
-	// Note: We don't transition to Running immediately; that's handled by async checks or webhook
-	// But per original logic: "inst.Status = provisioning"
+	// Note: Status will transition to Active once health checks pass.
+	// This is handled by a separate monitoring process or webhook from Nomad.
 
 	return uc.repo.Save(ctx, inst)
 }

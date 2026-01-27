@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/pkg/railzwayclient"
-	"github.com/smallbiznis/railzway-cloud/pkg/snowflake"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/pkg/railzwayclient"
+	"github.com/railzwaylabs/railzway-cloud/pkg/snowflake"
 	"gorm.io/gorm"
 )
 
@@ -14,6 +14,8 @@ type User struct {
 	ID        int64  `gorm:"primaryKey"`
 	Email     string `gorm:"uniqueIndex;not null"`
 	AuthID    string `gorm:"uniqueIndex;not null"`
+	FirstName string `gorm:"type:varchar(100)"`
+	LastName  string `gorm:"type:varchar(100)"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -81,4 +83,23 @@ func (s *Service) EnsureUser(
 	}
 
 	return returnValue, nil
+}
+
+func (s *Service) GetByID(ctx context.Context, userID int64) (*User, error) {
+	var user User
+	if err := s.db.WithContext(ctx).First(&user, "id = ?", userID).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (s *Service) UpdateProfile(ctx context.Context, userID int64, firstName, lastName string) (*User, error) {
+	if err := s.db.WithContext(ctx).Model(&User{}).Where("id = ?", userID).Updates(map[string]interface{}{
+		"first_name": firstName,
+		"last_name":  lastName,
+		"updated_at": time.Now(),
+	}).Error; err != nil {
+		return nil, err
+	}
+	return s.GetByID(ctx, userID)
 }

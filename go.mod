@@ -1,4 +1,4 @@
-module github.com/smallbiznis/railzway-cloud
+module github.com/railzwaylabs/railzway-cloud
 
 go 1.24.0
 

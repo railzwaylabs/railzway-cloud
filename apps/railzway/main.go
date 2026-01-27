@@ -9,29 +9,29 @@ import (
 
 	"go.uber.org/fx"
 
-	railzwayoss "github.com/smallbiznis/railzway-cloud/internal/adapter/billing/railzway_oss"
-	nomadAdapter "github.com/smallbiznis/railzway-cloud/internal/adapter/provisioning/nomad"
-	postgresProvisioner "github.com/smallbiznis/railzway-cloud/internal/adapter/provisioning/postgres"
-	"github.com/smallbiznis/railzway-cloud/internal/adapter/repository/postgres"
-	"github.com/smallbiznis/railzway-cloud/internal/api"
-	"github.com/smallbiznis/railzway-cloud/internal/auth"
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/billing"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/instance"
-	"github.com/smallbiznis/railzway-cloud/internal/domain/provisioning"
-	"github.com/smallbiznis/railzway-cloud/internal/onboarding"
-	"github.com/smallbiznis/railzway-cloud/internal/organization"
-	"github.com/smallbiznis/railzway-cloud/internal/outbox"
-	"github.com/smallbiznis/railzway-cloud/internal/reconciler"
-	"github.com/smallbiznis/railzway-cloud/internal/usecase/deployment"
-	"github.com/smallbiznis/railzway-cloud/internal/user"
-	"github.com/smallbiznis/railzway-cloud/internal/version"
-	"github.com/smallbiznis/railzway-cloud/pkg/authclient"
-	"github.com/smallbiznis/railzway-cloud/pkg/db"
-	zaplog "github.com/smallbiznis/railzway-cloud/pkg/log"
-	"github.com/smallbiznis/railzway-cloud/pkg/nomad"
-	"github.com/smallbiznis/railzway-cloud/pkg/railzwayclient"
-	"github.com/smallbiznis/railzway-cloud/pkg/snowflake"
+	railzwayoss "github.com/railzwaylabs/railzway-cloud/internal/adapter/billing/railzway_oss"
+	nomadAdapter "github.com/railzwaylabs/railzway-cloud/internal/adapter/provisioning/nomad"
+	postgresProvisioner "github.com/railzwaylabs/railzway-cloud/internal/adapter/provisioning/postgres"
+	"github.com/railzwaylabs/railzway-cloud/internal/adapter/repository/postgres"
+	"github.com/railzwaylabs/railzway-cloud/internal/api"
+	"github.com/railzwaylabs/railzway-cloud/internal/auth"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/billing"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/provisioning"
+	"github.com/railzwaylabs/railzway-cloud/internal/onboarding"
+	"github.com/railzwaylabs/railzway-cloud/internal/organization"
+	"github.com/railzwaylabs/railzway-cloud/internal/outbox"
+	"github.com/railzwaylabs/railzway-cloud/internal/reconciler"
+	"github.com/railzwaylabs/railzway-cloud/internal/usecase/deployment"
+	"github.com/railzwaylabs/railzway-cloud/internal/user"
+	"github.com/railzwaylabs/railzway-cloud/internal/version"
+	"github.com/railzwaylabs/railzway-cloud/pkg/authclient"
+	"github.com/railzwaylabs/railzway-cloud/pkg/db"
+	zaplog "github.com/railzwaylabs/railzway-cloud/pkg/log"
+	"github.com/railzwaylabs/railzway-cloud/pkg/nomad"
+	"github.com/railzwaylabs/railzway-cloud/pkg/railzwayclient"
+	"github.com/railzwaylabs/railzway-cloud/pkg/snowflake"
 	"go.uber.org/zap"
 )
 
@@ -82,6 +82,7 @@ func main() {
 			version.NewRegistry,
 			outbox.NewProcessor,
 			reconciler.NewInstanceReconciler,
+			reconciler.NewLifecycleReconciler,
 
 			// Auth & Session
 			auth.NewSessionManager,
@@ -98,9 +99,10 @@ func main() {
 	app.Run()
 }
 
-func registerHooks(lc fx.Lifecycle, router *api.Router, processor *outbox.Processor, instanceReconciler *reconciler.InstanceReconciler, client *railzwayclient.Client, logger *zap.Logger) {
+func registerHooks(lc fx.Lifecycle, router *api.Router, processor *outbox.Processor, instanceReconciler *reconciler.InstanceReconciler, lifecycleReconciler *reconciler.LifecycleReconciler, client *railzwayclient.Client, logger *zap.Logger) {
 	var processorCancel context.CancelFunc
 	var reconcilerCancel context.CancelFunc
+	var lifecycleCancel context.CancelFunc
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -113,6 +115,10 @@ func registerHooks(lc fx.Lifecycle, router *api.Router, processor *outbox.Proces
 			reconcilerCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 			reconcilerCancel = cancel
 			go instanceReconciler.Run(reconcilerCtx)
+
+			lifecycleCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+			lifecycleCancel = cancel
+			go lifecycleReconciler.Run(lifecycleCtx)
 
 			// Start server in goroutine
 			go func() {
@@ -131,6 +137,9 @@ func registerHooks(lc fx.Lifecycle, router *api.Router, processor *outbox.Proces
 			}
 			if reconcilerCancel != nil {
 				reconcilerCancel()
+			}
+			if lifecycleCancel != nil {
+				lifecycleCancel()
 			}
 
 			// Create shutdown context with timeout

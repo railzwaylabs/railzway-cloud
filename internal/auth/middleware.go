@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/smallbiznis/railzway-cloud/internal/config"
-	"github.com/smallbiznis/railzway-cloud/internal/user"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/user"
 )
 
 type Middleware struct {

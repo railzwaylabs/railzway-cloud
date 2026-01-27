@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Organizations from './pages/Organizations';
+import Settings from './pages/Settings';
 import { Layout } from './components/Layout';
 
 import RootRedirect from './components/RootRedirect';
@@ -16,6 +17,7 @@ function App() {
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/orgs" element={<Organizations />} />
             <Route path="/orgs/:slug" element={<Dashboard />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/" element={<RootRedirect />} />
           </Route>
 

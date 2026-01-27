@@ -3,7 +3,7 @@ package db
 import (
 	"fmt"
 
-	"github.com/smallbiznis/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/config"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"

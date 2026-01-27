@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Building2, ExternalLink, Loader2 } from 'lucide-react';
+import { Building2, ExternalLink, Loader2, Plus, Search } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, useReducedMotion } from 'motion/react';
 import { getPageVariants, getStaggerVariants } from '../lib/motion';
@@ -38,6 +38,7 @@ export default function Organizations() {
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [statuses, setStatuses] = useState<StatusMap>({});
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const reduceMotion = useReducedMotion();
   const pageVariants = getPageVariants(reduceMotion);
   const { container: staggerContainer, item: staggerItem } = getStaggerVariants(reduceMotion);
@@ -79,6 +80,14 @@ export default function Organizations() {
   }, []);
 
   const emptyState = useMemo(() => !loading && orgs.length === 0, [loading, orgs.length]);
+  const filteredOrgs = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return orgs;
+    return orgs.filter((org) => {
+      return org.name.toLowerCase().includes(needle) || org.slug.toLowerCase().includes(needle);
+    });
+  }, [orgs, query]);
+  const showNoResults = !loading && orgs.length > 0 && filteredOrgs.length === 0;
 
   return (
     <motion.div
@@ -95,6 +104,32 @@ export default function Organizations() {
             Pick an organization to manage its instance configuration.
           </p>
         </motion.header>
+
+        {!loading && (
+          <motion.div
+            className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            variants={staggerItem}
+          >
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search for an organization"
+                disabled={orgs.length === 0}
+                className="w-full rounded-full border border-border-subtle bg-bg-primary py-2 pl-10 pr-4 text-sm text-text-primary transition focus:border-border-strong focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+            <Link
+              to="/onboarding"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-accent-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              <span>New org</span>
+            </Link>
+          </motion.div>
+        )}
 
         {loading && (
           <motion.div className="surface-card flex items-center gap-3 p-6 text-text-muted" variants={staggerItem}>
@@ -121,9 +156,15 @@ export default function Organizations() {
           </motion.div>
         )}
 
-        {!loading && orgs.length > 0 && (
+        {showNoResults && (
+          <motion.div className="surface-card p-6 text-sm text-text-muted" variants={staggerItem}>
+            No organizations match "{query.trim()}". Try a different search.
+          </motion.div>
+        )}
+
+        {!loading && filteredOrgs.length > 0 && (
           <motion.div className="grid gap-4 md:grid-cols-2" variants={staggerItem}>
-            {orgs.map((org) => {
+            {filteredOrgs.map((org) => {
               const status = statuses[String(org.id)] || 'unknown';
               return (
                 <Link

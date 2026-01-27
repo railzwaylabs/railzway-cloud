@@ -3,15 +3,18 @@
 # ============================================
 FROM node:20-alpine AS frontend-builder
 
+# Enable pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app/frontend
 
 # Copy frontend package files
-COPY apps/railzway/package*.json ./
-RUN npm ci
+COPY apps/railzway/package.json apps/railzway/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # Copy frontend source and build
 COPY apps/railzway/ ./
-RUN npm run build
+RUN pnpm run build
 
 # ============================================
 # Stage 2: Build Backend

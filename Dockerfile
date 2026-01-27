@@ -7,7 +7,7 @@ WORKDIR /app/frontend
 
 # Copy frontend package files
 COPY apps/railzway/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy frontend source and build
 COPY apps/railzway/ ./

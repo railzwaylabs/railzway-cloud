@@ -163,12 +163,14 @@ jobs:
             
             echo "✅ Allocation $ALLOC_ID is running"
             
-            # Get service IP from Consul
-            SERVICE_IP=$(consul catalog service railzway-cloud -detailed | grep -oP 'Address=\K[0-9.]+' | head -1)
-            SERVICE_PORT=$(consul catalog service railzway-cloud -detailed | grep -oP 'Port=\K[0-9]+' | head -1)
+            # Get service IP and port from Consul HTTP API
+            SERVICE_INFO=$(curl -s http://localhost:8500/v1/health/service/railzway-cloud?passing=true | jq -r '.[0].Service | "\(.Address):\(.Port)"')
+            SERVICE_IP=$(echo $SERVICE_INFO | cut -d: -f1)
+            SERVICE_PORT=$(echo $SERVICE_INFO | cut -d: -f2)
             
             # Check health endpoint
-            if [ -n "$SERVICE_IP" ] && [ -n "$SERVICE_PORT" ]; then
+            if [ -n "$SERVICE_IP" ] && [ -n "$SERVICE_PORT" ] && [ "$SERVICE_IP" != "null" ]; then
+              echo "Service discovered at: http://$SERVICE_IP:$SERVICE_PORT"
               if curl -f http://$SERVICE_IP:$SERVICE_PORT/health; then
                 echo "✅ Health check passed! (http://$SERVICE_IP:$SERVICE_PORT/health)"
               else
@@ -187,3 +189,63 @@ jobs:
         if: success()
         run: |
           echo "🚀 Successfully deployed v${{ needs.release.outputs.new_release_version }} to Nomad!"
+
+
+      - name: Notify Slack
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "attachments": [
+                { "color": "#36a64f" }
+              ],
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "✅ Deployment Successful",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n`${{ github.repository }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version:*\n`v${{ needs.release.outputs.new_release_version }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Environment:*\nProduction"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Health Check:*\n✅ Passed"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "View Release" },
+                      "url": "https://github.com/${{ github.repository }}/releases/tag/v${{ needs.release.outputs.new_release_version }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "View Deployment" },
+                      "url": "https://cloud.railzway.com"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

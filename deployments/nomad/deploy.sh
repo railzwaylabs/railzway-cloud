@@ -113,11 +113,13 @@ echo ""
 echo "📋 Step 11: Performing health check..."
 sleep 10
 
-# Get service IP from Consul
-SERVICE_IP=$(consul catalog service railzway-cloud -detailed | grep -oP 'Address=\K[0-9.]+' | head -1)
-SERVICE_PORT=$(consul catalog service railzway-cloud -detailed | grep -oP 'Port=\K[0-9]+' | head -1)
+# Get service IP and port from Consul HTTP API
+SERVICE_INFO=$(curl -s http://localhost:8500/v1/health/service/railzway-cloud?passing=true | jq -r '.[0].Service | "\(.Address):\(.Port)"')
+SERVICE_IP=$(echo $SERVICE_INFO | cut -d: -f1)
+SERVICE_PORT=$(echo $SERVICE_INFO | cut -d: -f2)
 
-if [ -n "$SERVICE_IP" ] && [ -n "$SERVICE_PORT" ]; then
+if [ -n "$SERVICE_IP" ] && [ -n "$SERVICE_PORT" ] && [ "$SERVICE_IP" != "null" ]; then
+  echo "Service discovered at: http://$SERVICE_IP:$SERVICE_PORT"
   if curl -f http://$SERVICE_IP:$SERVICE_PORT/health &> /dev/null; then
     echo -e "${GREEN}✓ Health check passed! (http://$SERVICE_IP:$SERVICE_PORT/health)${NC}"
   else

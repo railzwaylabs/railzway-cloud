@@ -54,6 +54,15 @@ set_kv "PROVISION_RATE_LIMIT_REDIS_ADDR" "redis_addr"
 set_kv "PROVISION_RATE_LIMIT_REDIS_PASSWORD" "redis_password"
 set_kv "PROVISION_RATE_LIMIT_REDIS_DB" "redis_db"
 
+# Authentication
+echo "🔐 Authentication Configuration..."
+set_kv "AUTH_COOKIE_SECRET" "auth_cookie_secret"
+set_kv "ADMIN_API_TOKEN" "admin_api_token"
+
+# Secrets Encryption
+echo "🔑 Secrets Encryption..."
+set_kv "INSTANCE_SECRET_ENCRYPTION_KEY" "instance_secret_encryption_key"
+
 # OAuth2 Configuration (Cloud UI)
 echo "🔐 OAuth2 Configuration..."
 set_kv "OAUTH2_CLIENT_ID" "oauth2_client_id"
@@ -61,16 +70,46 @@ set_kv "OAUTH2_CLIENT_SECRET" "oauth2_client_secret"
 set_kv "OAUTH2_URI" "oauth2_uri"
 set_kv "OAUTH2_CALLBACK_URL" "oauth2_callback_url"
 
-# Tenant OAuth (for deployed instances)
-echo "👥 Tenant OAuth Configuration..."
-set_kv "TENANT_OAUTH2_CLIENT_ID" "tenant_oauth2_client_id"
-set_kv "TENANT_OAUTH2_CLIENT_SECRET" "tenant_oauth2_client_secret"
-set_kv "TENANT_AUTH_JWT_SECRET_KEY" "tenant_auth_jwt_secret_key"
+# Auth Service (railzway-auth)
+echo "🔐 Auth Service Configuration..."
+set_kv "AUTH_SERVICE_URL" "auth_service_url"
+set_kv "AUTH_SERVICE_TENANT" "auth_service_tenant"
+set_kv "AUTH_SERVICE_TIMEOUT" "auth_service_timeout"
+set_kv "AUTH_SERVICE_CLIENT_ID" "auth_service_client_id"
+set_kv "AUTH_SERVICE_CLIENT_SECRET" "auth_service_client_secret"
+set_kv "AUTH_SERVICE_CLIENT_SCOPE" "auth_service_client_scope"
 
-# Security
-echo "🔒 Security Configuration..."
-set_kv "AUTH_JWT_SECRET" "auth_jwt_secret"
-set_kv "ADMIN_API_TOKEN" "admin_api_token"
+# Nomad Configuration
+echo "🚀 Nomad Configuration..."
+set_kv "NOMAD_ADDR" "nomad_addr"
+set_kv "NOMAD_REGION" "nomad_region"
+set_kv "NOMAD_NAMESPACE" "nomad_namespace"
+set_kv "NOMAD_HTTP_AUTH" "nomad_http_auth"
+set_kv "NOMAD_CACERT" "nomad_cacert"
+set_kv "NOMAD_CAPATH" "nomad_capath"
+set_kv "NOMAD_CLIENT_CERT" "nomad_client_cert"
+set_kv "NOMAD_CLIENT_KEY" "nomad_client_key"
+set_kv "NOMAD_TLS_SERVER_NAME" "nomad_tls_server_name"
+set_kv "NOMAD_SKIP_VERIFY" "nomad_skip_verify"
+set_kv "NOMAD_TOKEN" "nomad_token"
+
+# Railzway Client
+echo "🔌 Railzway Client Configuration..."
+set_kv "RAILZWAY_CLIENT_URL" "railzway_client_url"
+set_kv "RAILZWAY_API_KEY" "railzway_api_key"
+set_kv "RAILZWAY_CLIENT_TIMEOUT" "railzway_client_timeout"
+set_kv "RAILZWAY_CLIENT_RETRY_COUNT" "railzway_client_retry_count"
+set_kv "RAILZWAY_CLIENT_RETRY_DELAY" "railzway_client_retry_delay"
+set_kv "RAILZWAY_CLIENT_CACHE_TTL" "railzway_client_cache_ttl"
+set_kv "RAILZWAY_CLIENT_CACHE_SIZE" "railzway_client_cache_size"
+set_kv "RAILZWAY_CLIENT_RATE_LIMIT" "railzway_client_rate_limit"
+set_kv "RAILZWAY_CLIENT_RATE_BURST" "railzway_client_rate_burst"
+set_kv "RAILZWAY_CLIENT_ENABLE_CIRCUIT_BREAKER" "railzway_client_enable_circuit_breaker"
+set_kv "RAILZWAY_CLIENT_CIRCUIT_BREAKER_FAILURE_THRESHOLD" "railzway_client_circuit_breaker_failure_threshold"
+set_kv "RAILZWAY_CLIENT_CIRCUIT_BREAKER_RECOVERY_TIME" "railzway_client_circuit_breaker_recovery_time"
+set_kv "RAILZWAY_CLIENT_CIRCUIT_BREAKER_MIN_REQUESTS" "railzway_client_circuit_breaker_min_requests"
+set_kv "RAILZWAY_CLIENT_CIRCUIT_BREAKER_SAMPLING_DURATION" "railzway_client_circuit_breaker_sampling_duration"
+set_kv "RAILZWAY_CLIENT_CIRCUIT_BREAKER_HALF_OPEN_MAX_SUCCESS" "railzway_client_circuit_breaker_half_open_max_success"
 
 # Application
 echo "🌐 Application Configuration..."

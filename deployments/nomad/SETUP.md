@@ -1,157 +1,164 @@
-# Setup Nomad Deployment for Railzway-Cloud
+# Railzway Cloud - Nomad Deployment Setup
+
+Complete setup guide for deploying Railzway Cloud to Nomad.
+
+---
 
 ## Prerequisites
 
-1. Nomad cluster running on GCE instance
-2. Consul for service discovery and KV storage
-3. Traefik as ingress controller
-4. Docker installed on Nomad clients
+1. ✅ Nomad cluster running
+2. ✅ Consul with `client_addr = "0.0.0.0"`
+3. ✅ Traefik as ingress controller
+4. ✅ Docker runtime on Nomad clients
+5. ✅ PostgreSQL (Nomad job or external)
+6. ✅ Redis (Nomad job or external)
 
 ---
 
-## Step 1: Copy Nomad Job File to Server
+## Initial Setup
+
+### Step 1: Prepare Environment File
+
+Edit `.env.production` locally:
 
 ```bash
-# From your local machine
-scp deployments/nomad/railzway-cloud.nomad taufik_triantono@<GCE_IP>:/opt/railzway/deployments/
+# Update all REPLACE_ME values:
+# - Database credentials
+# - Redis configuration
+# - OAuth2 credentials
+# - Auth service credentials
+
+# Generate secrets
+./deployments/nomad/generate-secrets.sh .env.production
 ```
 
----
-
-## Step 2: Store Environment Variables in Consul KV
+### Step 2: Run Initial Setup Script
 
 ```bash
-# SSH to server
-ssh taufik_triantono@<GCE_IP>
-
-# Store env file in Consul
-consul kv put railzway-cloud/env - < /opt/railzway/.env
-
-# Verify
-consul kv get railzway-cloud/env
+./deployments/nomad/initial-setup.sh
 ```
 
-**Alternative**: If you prefer file-based env, modify the Nomad job to use:
-```hcl
-template {
-  data = <<EOH
-{{ range $key, $value := secrets "railzway-cloud/env" }}
-{{ $key }}={{ $value }}
-{{ end }}
-EOH
-  destination = "secrets/file.env"
-  env         = true
-}
-```
+**What it does:**
+1. Copy `.env.production` → `~/railzway/.env` on server
+2. Copy deployment scripts to `~/railzway/deployments/`
+3. Populate Consul KV from `.env`
 
----
+**Prompts:**
+- Server IP (default: `34.87.70.45`)
+- SSH username (default: `github-actions`)
+- SSH key path (default: `~/.ssh/railzway-deploy`)
 
-## Step 3: Update GitHub Secrets
+### Step 3: Configure GitHub Secrets
 
-Go to: https://github.com/railzwaylabs/railzway-cloud/settings/secrets/actions
+Go to: [GitHub Secrets](https://github.com/railzwaylabs/railzway-cloud/settings/secrets/actions)
 
 Add/Update:
-- **GCE_HOST_PROD_1**: `<your-gce-ip-address>`
-- **GCE_USERNAME_PROD_1**: `taufik_triantono`
-- **GCE_SSH_KEY_PROD_1**: 
-  ```
-  -----BEGIN OPENSSH PRIVATE KEY-----
-  b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-  ... (full private key content)
-  -----END OPENSSH PRIVATE KEY-----
-  ```
+```
+GCE_HOST_PROD_1 = <server-ip>
+GCE_USERNAME_PROD_1 = github-actions
+GCE_SSH_KEY_PROD_1 = <private-key-content>
+```
+
+> **Note:** `GITHUB_TOKEN` is auto-available and used for Docker registry authentication
 
 ---
 
-## Step 4: Initial Manual Deployment
+## Deployment
+
+### Automated (Recommended)
+
+Merge to `main` branch → GitHub Actions auto-deploys:
+
+1. Semantic release creates version tag
+2. Docker image built and pushed to GHCR
+3. GitHub Actions injects `GITHUB_TOKEN` to Consul KV
+4. Nomad job deployed via SSH
+5. Rolling update with health checks
+
+### Manual (Emergency)
 
 ```bash
-# SSH to server
-ssh taufik_triantono@<GCE_IP>
+ssh -i ~/.ssh/railzway-deploy github-actions@<server-ip>
 
-# Run Nomad job for the first time
-nomad job run -var="version=v1.2.0" /opt/railzway/deployments/railzway-cloud.nomad
+# Ensure GITHUB_TOKEN is in Consul KV
+consul kv put railzway-cloud/github_token "<your-github-token>"
 
-# Check status
+# Deploy specific version
+cd ~/railzway/deployments
+./deploy.sh v1.3.0
+```
+
+---
+
+## Verification
+
+```bash
+# Check job status
 nomad job status railzway-cloud
 
 # Check allocation
-nomad alloc status <alloc-id>
+ALLOC_ID=$(nomad job allocs railzway-cloud | grep running | head -1 | awk '{print $1}')
+nomad alloc status $ALLOC_ID
 
 # View logs
-nomad alloc logs <alloc-id>
-```
+nomad alloc logs -f $ALLOC_ID
 
----
-
-## Step 5: Verify Traefik Integration
-
-```bash
-# Check if service is registered in Consul
-consul catalog services | grep railzway-cloud
-
-# Test health endpoint
+# Health check
 curl http://localhost:8080/health
-
-# Test via Traefik (if DNS configured)
-curl https://cloud.railzway.com/health
 ```
-
----
-
-## Step 6: Trigger Automated Deployment
-
-After setup is complete, automated deployment will trigger on:
-1. Merge PR to `main` branch
-2. Semantic-release creates new version tag
-3. Docker image is built and pushed to GHCR
-4. GitHub Actions runs `nomad job run` via SSH
-5. Nomad performs rolling update with health checks
 
 ---
 
 ## Troubleshooting
 
 ### SSH Authentication Failed
-```bash
-# Verify SSH key permissions
-chmod 600 ~/.ssh/railzway-deploy
 
-# Test SSH connection
-ssh -i ~/.ssh/railzway-deploy taufik_triantono@<GCE_IP>
+```bash
+# Verify SSH key is added to GCP metadata
+# Username must match SSH key comment (e.g., github-actions)
+
+# Test connection
+ssh -i ~/.ssh/railzway-deploy github-actions@<server-ip>
+```
+
+### Docker Pull Unauthorized
+
+**Cause:** Missing GITHUB_TOKEN in Consul KV
+
+**Fix:**
+```bash
+# GitHub Actions will inject it automatically
+# Or manually add:
+consul kv put railzway-cloud/github_token "<token>"
+```
+
+### Consul Connection Refused
+
+**Cause:** Consul not listening on localhost
+
+**Fix:**
+```bash
+# Edit Consul config
+sudo nano /etc/consul.d/consul.hcl
+
+# Add:
+client_addr = "0.0.0.0"
+
+# Restart
+sudo systemctl restart consul
 ```
 
 ### Nomad Job Failed
+
 ```bash
-# Check job status
-nomad job status railzway-cloud
-
-# View allocation logs
-nomad alloc logs <alloc-id>
-
 # Check events
-nomad alloc status <alloc-id> | grep Events -A 10
-```
+nomad alloc status <alloc-id> | grep Events -A 20
 
-### Health Check Failing
-```bash
-# Check if port is listening
-netstat -tlnp | grep 8080
-
-# Check Docker container
-docker ps | grep railzway-cloud
-
-# View container logs
+# View logs
 nomad alloc logs <alloc-id>
-```
 
-### Traefik Not Routing
-```bash
-# Check Traefik dashboard
-curl http://localhost:8081/dashboard/
-
-# Verify service tags in Consul
-consul catalog service railzway-cloud
+# Check Consul KV
+consul kv get -recurse railzway-cloud/
 ```
 
 ---
@@ -162,8 +169,8 @@ consul catalog service railzway-cloud
 # Revert to previous version
 nomad job revert railzway-cloud <version-number>
 
-# Or manually specify version
-nomad job run -var="version=v1.1.0" /opt/railzway/deployments/railzway-cloud.nomad
+# Or deploy specific version
+nomad job run -var="version=v1.2.0" ~/railzway/deployments/railzway-cloud.nomad
 ```
 
 ---
@@ -171,12 +178,42 @@ nomad job run -var="version=v1.1.0" /opt/railzway/deployments/railzway-cloud.nom
 ## Monitoring
 
 ```bash
-# Watch deployment progress
+# Watch deployment
 watch -n 2 'nomad job status railzway-cloud'
 
 # Stream logs
 nomad alloc logs -f <alloc-id>
 
-# Check resource usage
+# Resource usage
 nomad alloc status <alloc-id> | grep Resources -A 10
+
+# Nomad UI
+http://<server-ip>:4646
+```
+
+---
+
+## File Locations
+
+### On Server
+```
+~/railzway/
+├── .env                     # Environment variables
+└── deployments/
+    ├── setup-consul-kv.sh  # Consul KV setup
+    ├── deploy.sh           # Deployment script
+    └── railzway-cloud.nomad # Nomad job definition
+```
+
+### In Repository
+```
+deployments/nomad/
+├── initial-setup.sh        # One-time setup script
+├── setup-consul-kv.sh     # Consul KV population
+├── deploy.sh              # Deployment script
+├── railzway-cloud.nomad   # Nomad job file
+├── generate-secrets.sh    # Secret generation helper
+├── QUICKSTART.md          # Quick start guide
+├── SETUP.md               # This file
+└── CHECKLIST.md           # Deployment checklist
 ```

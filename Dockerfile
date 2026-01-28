@@ -34,7 +34,7 @@ COPY . .
 
 # Build binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -trimpath -ldflags="-s -w" -o /workspace/railzway-cloud ./apps/railzway/main.go
+    go build -trimpath -ldflags="-s -w" -o /workspace/railzway-cloud ./cmd/railzway
 
 # ============================================
 # Stage 3: Runtime

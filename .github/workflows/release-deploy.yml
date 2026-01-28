@@ -191,11 +191,61 @@ jobs:
           echo "🚀 Successfully deployed v${{ needs.release.outputs.new_release_version }} to Nomad!"
 
 
-      - name: Notify Discord
+      - name: Notify Slack
         if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "attachments": [
+                { "color": "#36a64f" }
+              ],
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "✅ Deployment Successful",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n`${{ github.repository }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version:*\n`v${{ needs.release.outputs.new_release_version }}`"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Environment:*\nProduction"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Health Check:*\n✅ Passed"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "View Release" },
+                      "url": "https://github.com/${{ github.repository }}/releases/tag/v${{ needs.release.outputs.new_release_version }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "View Deployment" },
+                      "url": "https://cloud.railzway.com"
+                    }
+                  ]
+                }
+              ]
+            }
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          curl -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"✅ Deployment Successful\",\"description\":\"**Repository:** \`${{ github.repository }}\`\\n**Version:** \`v${{ needs.release.outputs.new_release_version }}\`\\n**Environment:** Production\",\"color\":3066993,\"fields\":[{\"name\":\"Status\",\"value\":\"Deployed to Nomad\",\"inline\":true},{\"name\":\"Health Check\",\"value\":\"✅ Passed\",\"inline\":true}],\"footer\":{\"text\":\"Railzway Cloud\"},\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"}]}" \
-            $DISCORD_WEBHOOK
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

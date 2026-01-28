@@ -47,8 +47,7 @@ COPY --from=backend-builder /workspace/railzway-cloud /usr/local/bin/railzway-cl
 # Copy frontend build artifacts
 COPY --from=frontend-builder /app/frontend/dist /app/dist
 
-# Copy SQL migrations
-COPY sql/migrations /app/sql/migrations
+
 
 EXPOSE 8080
 

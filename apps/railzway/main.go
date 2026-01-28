@@ -33,9 +33,22 @@ import (
 	"github.com/railzwaylabs/railzway-cloud/pkg/railzwayclient"
 	"github.com/railzwaylabs/railzway-cloud/pkg/snowflake"
 	"go.uber.org/zap"
+
+	"os"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/railzwaylabs/railzway-cloud/sql/migrations"
 )
 
 func main() {
+	// Check for migration command
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		runMigrations()
+		return
+	}
+
 	app := fx.New(
 		fx.Provide(
 			// Config
@@ -97,6 +110,60 @@ func main() {
 	)
 
 	app.Run()
+}
+
+func runMigrations() {
+	cfg := config.Load()
+	logger, _ := zap.NewProduction() // Basic logger for migration
+	defer logger.Sync()
+
+	logger.Info("Starting database migration...")
+
+	dbURL := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBHost,
+		cfg.DBPort,
+		cfg.DBName,
+		cfg.DBSSLMode,
+	)
+
+	d, err := iofs.New(migrations.FS, ".")
+	if err != nil {
+		logger.Fatal("Failed to load migration files", zap.Error(err))
+	}
+
+	m, err := migrate.NewWithSourceInstance("iofs", d, dbURL)
+	if err != nil {
+		logger.Fatal("Failed to create migrate instance", zap.Error(err))
+	}
+
+	cmd := "up"
+	if len(os.Args) > 2 {
+		cmd = os.Args[2]
+	}
+
+	logger.Info("Running migration", zap.String("command", cmd))
+
+	switch cmd {
+	case "up":
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			logger.Fatal("Migration up failed", zap.Error(err))
+		}
+		if err == migrate.ErrNoChange {
+			logger.Info("No changes to apply")
+		} else {
+			logger.Info("Migration up applied successfully")
+		}
+	case "down":
+		if err := m.Down(); err != nil && err != migrate.ErrNoChange {
+			logger.Fatal("Migration down failed", zap.Error(err))
+		}
+		logger.Info("Migration down applied successfully")
+	default:
+		logger.Fatal("Unknown migration command", zap.String("command", cmd))
+	}
 }
 
 func registerHooks(lc fx.Lifecycle, router *api.Router, processor *outbox.Processor, instanceReconciler *reconciler.InstanceReconciler, lifecycleReconciler *reconciler.LifecycleReconciler, client *railzwayclient.Client, logger *zap.Logger) {

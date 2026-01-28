@@ -31,7 +31,7 @@ job "railzway-cloud" {
         # HTTPS Router (main)
         "traefik.http.routers.railzway-cloud.rule=Host(`cloud.railzway.com`)",
         "traefik.http.routers.railzway-cloud.entrypoints=websecure",
-        "traefik.http.routers.railzway-cloud.tls.certresolver=letsencrypt",
+        "traefik.http.routers.railzway-cloud.tls.certresolver=cloudflare",
         
         # HTTP Router (redirect to HTTPS)
         "traefik.http.routers.railzway-cloud-http.rule=Host(`cloud.railzway.com`)",

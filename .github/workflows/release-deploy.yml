@@ -163,12 +163,23 @@ jobs:
             
             echo "✅ Allocation $ALLOC_ID is running"
             
+            # Get service IP from Consul
+            SERVICE_IP=$(consul catalog service railzway-cloud -detailed | grep -oP 'Address=\K[0-9.]+' | head -1)
+            SERVICE_PORT=$(consul catalog service railzway-cloud -detailed | grep -oP 'Port=\K[0-9]+' | head -1)
+            
             # Check health endpoint
-            if curl -f http://localhost:8080/health; then
-              echo "✅ Health check passed!"
+            if [ -n "$SERVICE_IP" ] && [ -n "$SERVICE_PORT" ]; then
+              if curl -f http://$SERVICE_IP:$SERVICE_PORT/health; then
+                echo "✅ Health check passed! (http://$SERVICE_IP:$SERVICE_PORT/health)"
+              else
+                echo "❌ Health check failed!"
+                echo "Service: http://$SERVICE_IP:$SERVICE_PORT/health"
+                nomad alloc logs $ALLOC_ID server
+                exit 1
+              fi
             else
-              echo "❌ Health check failed!"
-              nomad alloc logs $ALLOC_ID
+              echo "❌ Could not get service IP from Consul"
+              nomad alloc logs $ALLOC_ID server
               exit 1
             fi
 

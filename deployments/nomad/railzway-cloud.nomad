@@ -27,9 +27,20 @@ job "railzway-cloud" {
       
       tags = [
         "traefik.enable=true",
+        
+        # HTTPS Router (main)
         "traefik.http.routers.railzway-cloud.rule=Host(`cloud.railzway.com`)",
         "traefik.http.routers.railzway-cloud.entrypoints=websecure",
         "traefik.http.routers.railzway-cloud.tls.certresolver=letsencrypt",
+        
+        # HTTP Router (redirect to HTTPS)
+        "traefik.http.routers.railzway-cloud-http.rule=Host(`cloud.railzway.com`)",
+        "traefik.http.routers.railzway-cloud-http.entrypoints=web",
+        "traefik.http.routers.railzway-cloud-http.middlewares=railzway-cloud-redirect",
+        
+        # Redirect middleware
+        "traefik.http.middlewares.railzway-cloud-redirect.redirectscheme.scheme=https",
+        "traefik.http.middlewares.railzway-cloud-redirect.redirectscheme.permanent=true",
       ]
 
       check {

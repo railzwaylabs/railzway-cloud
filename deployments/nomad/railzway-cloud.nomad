@@ -51,7 +51,6 @@ job "railzway-cloud" {
 
       config {
         image = "ghcr.io/railzwaylabs/railzway-cloud:${var.version}"
-        command = "/usr/local/bin/railzway-cloud"
         args    = ["migrate", "up"]
 
         # Docker registry authentication
@@ -89,6 +88,7 @@ EOH
       config {
         image = "ghcr.io/railzwaylabs/railzway-cloud:${var.version}"
         ports = ["http"]
+        args  = ["serve"]
         
         # Docker registry authentication for GHCR
         auth {

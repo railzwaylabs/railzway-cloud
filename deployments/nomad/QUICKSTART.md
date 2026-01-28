@@ -1,10 +1,10 @@
-# Ready to Deploy! 🚀
+# Railzway Cloud - Quick Deployment Guide 🚀
 
-## ✅ Infrastructure Status
+## ✅ Prerequisites
 
-Semua sudah ready:
+Infrastructure yang sudah ready:
 - ✅ Nomad cluster
-- ✅ Consul
+- ✅ Consul (with `client_addr = "0.0.0.0"`)
 - ✅ Traefik
 - ✅ Docker runtime
 - ✅ PostgreSQL (Nomad job)
@@ -12,166 +12,152 @@ Semua sudah ready:
 
 ---
 
-## 🎯 Tinggal 2 Langkah!
+## 🎯 Deployment Steps
 
-### **Step 1: Setup Environment Variables**
+### **Step 1: Prepare .env.production Locally**
+
+Edit `.env.production` di local machine Anda:
 
 ```bash
-# SSH ke server
-ssh taufik_triantono@<server-ip>
-
-# Buat .env file
-sudo mkdir -p /opt/railzway
-sudo nano /opt/railzway/.env
+# Update values yang masih REPLACE_ME:
+# - OAUTH2_CLIENT_ID
+# - OAUTH2_CLIENT_SECRET
+# - OAUTH2_CALLBACK_URL
+# - AUTH_SERVICE_CLIENT_ID
+# - AUTH_SERVICE_CLIENT_SECRET
+# - Database credentials
+# - Redis credentials
 ```
 
-**Paste ini** (sesuaikan values):
-
+**Generate secrets** (jika belum):
 ```bash
-# Database (dari Nomad job PostgreSQL)
-DB_HOST=postgres.service.consul  # atau IP allocation PostgreSQL
-DB_PORT=5432
-DB_NAME=cloud
-DB_USER=postgres
-DB_PASSWORD=<your_postgres_password>
-DB_SSL_MODE=disable
-
-# Provision DB (sama dengan DB utama)
-PROVISION_DB_HOST=postgres.service.consul
-PROVISION_DB_PORT=5432
-PROVISION_DB_NAME=cloud
-PROVISION_DB_USER=postgres
-PROVISION_DB_PASSWORD=<your_postgres_password>
-PROVISION_DB_SSL_MODE=disable
-
-# Redis (dari Nomad job Redis)
-PROVISION_RATE_LIMIT_REDIS_ADDR=redis.service.consul:6379
-PROVISION_RATE_LIMIT_REDIS_PASSWORD=
-PROVISION_RATE_LIMIT_REDIS_DB=0
-
-# OAuth2 - SESUAIKAN INI!
-OAUTH2_CLIENT_ID=<your_oauth_client_id>
-OAUTH2_CLIENT_SECRET=<your_oauth_client_secret>
-OAUTH2_URI=<your_auth_provider_url>
-OAUTH2_CALLBACK_URL=https://cloud.railzway.com/auth/callback
-
-# Tenant OAuth - SESUAIKAN INI!
-TENANT_OAUTH2_CLIENT_ID=<tenant_client_id>
-TENANT_OAUTH2_CLIENT_SECRET=<tenant_client_secret>
-TENANT_AUTH_JWT_SECRET_KEY=$(openssl rand -base64 32)
-
-# Security - GENERATE RANDOM!
-AUTH_JWT_SECRET=$(openssl rand -base64 32)
-ADMIN_API_TOKEN=$(openssl rand -hex 32)
-
-# Application
-APP_ROOT_DOMAIN=railzway.com
-APP_ROOT_SCHEME=https
-```
-
-**Generate secrets:**
-```bash
-# Generate random secrets
-openssl rand -base64 32  # untuk JWT secrets
-openssl rand -hex 32     # untuk API token
+./deployments/nomad/generate-secrets.sh .env.production
 ```
 
 ---
 
-### **Step 2: Deploy!**
+### **Step 2: Run Initial Setup**
 
 ```bash
-# Copy deployment files
-scp deployments/nomad/* taufik_triantono@<server-ip>:/opt/railzway/deployments/
-
-# SSH ke server
-ssh taufik_triantono@<server-ip>
-
-# Run deployment
-cd /opt/railzway/deployments
-./deploy.sh v1.2.0
+# Dari project root
+./deployments/nomad/initial-setup.sh
 ```
 
-**Script akan otomatis:**
-1. Verify prerequisites ✅
-2. Populate Consul KV dari .env ✅
-3. Deploy Nomad job ✅
-4. Health check ✅
+**Prompts** (semua ada default):
+- Server IP: `34.87.70.45`
+- SSH username: `github-actions`
+- SSH key: `~/.ssh/railzway-deploy`
+
+**Script akan:**
+1. ✅ Copy `.env.production` → `~/railzway/.env` di server
+2. ✅ Copy deployment scripts ke `~/railzway/deployments/`
+3. ✅ Populate Consul KV dari `.env`
+
+---
+
+### **Step 3: Setup GitHub Secrets**
+
+Go to: [GitHub Secrets](https://github.com/railzwaylabs/railzway-cloud/settings/secrets/actions)
+
+Add/Update:
+```
+GCE_HOST_PROD_1 = 34.87.70.45
+GCE_USERNAME_PROD_1 = github-actions
+GCE_SSH_KEY_PROD_1 = <content of ~/.ssh/railzway-deploy>
+```
+
+> **Note:** `GITHUB_TOKEN` sudah auto-available, digunakan untuk Docker registry auth
+
+---
+
+### **Step 4: Deploy via GitHub Actions**
+
+**Option A: Merge to main (Recommended)**
+```bash
+git checkout main
+git merge your-branch
+git push
+```
+
+**Option B: Manual trigger**
+- Go to Actions tab
+- Select "Release and Deploy"
+- Click "Run workflow"
 
 ---
 
 ## 📊 Verify Deployment
 
 ```bash
-# Check job status
+# SSH to server
+ssh -i ~/.ssh/railzway-deploy github-actions@34.87.70.45
+
+# Check Nomad job
 nomad job status railzway-cloud
 
 # Check logs
-nomad alloc logs $(nomad job allocs railzway-cloud | grep running | head -1 | awk '{print $1}')
+ALLOC_ID=$(nomad job allocs railzway-cloud | grep running | head -1 | awk '{print $1}')
+nomad alloc logs -f $ALLOC_ID
 
 # Health check
 curl http://localhost:8080/health
-
-# Check via Traefik
-curl https://cloud.railzway.com/health
 ```
 
 ---
 
-## 🔧 Jika Ada Masalah
+## 🔧 Troubleshooting
+
+### Docker pull unauthorized
+
+**Cause:** GITHUB_TOKEN tidak ada di Consul KV
+
+**Fix:**
+```bash
+# SSH to server
+ssh -i ~/.ssh/railzway-deploy github-actions@34.87.70.45
+
+# Check if token exists
+consul kv get railzway-cloud/github_token
+
+# If missing, GitHub Actions will inject it on next deployment
+# Or manually add:
+consul kv put railzway-cloud/github_token "your-github-token"
+```
 
 ### PostgreSQL connection error
+
 ```bash
 # Check PostgreSQL service
 consul catalog service postgres
-
-# Get PostgreSQL IP
-nomad job allocs postgres | grep running
 
 # Test connection
 psql -h postgres.service.consul -U postgres -d cloud -c "SELECT 1"
 ```
 
-### Redis connection error
+### Consul connection refused
+
+**Cause:** Consul tidak listening di localhost
+
+**Fix:**
 ```bash
-# Check Redis service
-consul catalog service redis
+# Edit Consul config
+sudo nano /etc/consul.d/consul.hcl
 
-# Test connection
-redis-cli -h redis.service.consul ping
-```
+# Add:
+# client_addr = "0.0.0.0"
 
-### Nomad job tidak start
-```bash
-# Check allocation
-ALLOC_ID=$(nomad job allocs railzway-cloud | grep -E 'running|pending' | head -1 | awk '{print $1}')
-nomad alloc status $ALLOC_ID
-
-# Check events
-nomad alloc status $ALLOC_ID | grep Events -A 20
+# Restart
+sudo systemctl restart consul
 ```
 
 ---
 
-## 🎉 Setelah Deploy Sukses
+## 🎉 Success!
 
-### Setup GitHub Actions (Auto-deploy)
-Update GitHub Secrets:
-- `GCE_HOST_PROD_1` = `<server-ip>`
-- `GCE_USERNAME_PROD_1` = `taufik_triantono`
-- `GCE_SSH_KEY_PROD_1` = (private key)
+Setelah deploy sukses:
+- ✅ Future deployments otomatis via GitHub Actions
+- ✅ Merge to `main` → Auto-deploy
+- ✅ Monitor via Nomad UI: `http://<server-ip>:4646`
+- ✅ Monitor via GitHub Actions
 
-Setelah itu, setiap merge ke `main` → auto deploy! 🚀
-
-### Monitor
-```bash
-# Watch logs
-nomad alloc logs -f <alloc-id>
-
-# Watch metrics
-consul catalog service railzway-cloud -detailed
-```
-
----
-
-**Ready? Merge PR dan deploy!** 🎯
+**Ready to ship!** 🚀

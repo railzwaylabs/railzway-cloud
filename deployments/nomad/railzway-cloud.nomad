@@ -3,6 +3,11 @@ variable "version" {
   description = "Docker image tag for railzway-cloud"
 }
 
+variable "github_token" {
+  type        = string
+  description = "GitHub PAT for pulling images from GHCR"
+}
+
 job "railzway-cloud" {
   datacenters = ["dc1"]
   type        = "service"
@@ -52,7 +57,7 @@ job "railzway-cloud" {
         # Docker registry authentication
         auth {
           username = "railzwaylabs"
-          password = "${GITHUB_TOKEN}"
+          password = var.github_token
         }
       }
 
@@ -88,7 +93,7 @@ EOH
         # Docker registry authentication for GHCR
         auth {
           username = "railzwaylabs"
-          password = "${GITHUB_TOKEN}"
+          password = var.github_token
         }
         
         volumes = [

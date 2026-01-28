@@ -132,6 +132,7 @@ jobs:
             # Submit Nomad job with new version
             nomad job run \
               -var="version=${VERSION}" \
+              -var="github_token=${{ secrets.GITHUB_TOKEN }}" \
               /opt/railzway/deployments/railzway-cloud.nomad
             
             # Wait for deployment to be healthy

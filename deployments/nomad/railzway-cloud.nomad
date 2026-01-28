@@ -116,7 +116,7 @@ EOH
         APP_VERSION               = "${var.version}"
         RAILZWAY_OSS_VERSION      = "v1.6.0"
         DB_TYPE                   = "postgres"
-        STATIC_DIR                = "/app/apps/railzway/dist"
+        STATIC_DIR                = "/app/dist"
       }
 
       # Sensitive environment variables from Consul KV

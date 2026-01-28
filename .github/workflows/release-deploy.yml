@@ -163,14 +163,37 @@ jobs:
             
             echo "✅ Allocation $ALLOC_ID is running"
             
-            # Get service IP and port from Consul HTTP API
-            SERVICE_INFO=$(curl -s http://localhost:8500/v1/health/service/railzway-cloud?passing=true | jq -r '.[0].Service | "\(.Address):\(.Port)"')
-            SERVICE_IP=$(echo $SERVICE_INFO | cut -d: -f1)
-            SERVICE_PORT=$(echo $SERVICE_INFO | cut -d: -f2)
+            # Retry loop for service discovery (max 60s)
+            MAX_RETRIES=12
+            COUNTER=0
+            SERVICE_IP=""
+            SERVICE_PORT=""
             
-            # Check health endpoint
-            if [ -n "$SERVICE_IP" ] && [ -n "$SERVICE_PORT" ] && [ "$SERVICE_IP" != "null" ]; then
-              echo "Service discovered at: http://$SERVICE_IP:$SERVICE_PORT"
+            echo "Waiting for service to register in Consul..."
+            while [ $COUNTER -lt $MAX_RETRIES ]; do
+              SERVICE_INFO=$(curl -s http://localhost:8500/v1/health/service/railzway-cloud?passing=true | jq -r '.[0].Service | "\(.Address):\(.Port)"')
+              # Check if we got "null:null" or just ":" or real data
+              if [ -n "$SERVICE_INFO" ] && [ "$SERVICE_INFO" != "null:null" ] && [ "$SERVICE_INFO" != ":" ]; then
+                SERVICE_IP=$(echo $SERVICE_INFO | cut -d: -f1)
+                SERVICE_PORT=$(echo $SERVICE_INFO | cut -d: -f2)
+                if [ -n "$SERVICE_IP" ] && [ "$SERVICE_IP" != "null" ]; then
+                  echo "✅ Service discovered at: http://$SERVICE_IP:$SERVICE_PORT"
+                  break
+                fi
+              fi
+              
+              echo "Attempt $(($COUNTER+1))/$MAX_RETRIES: Service not ready yet..."
+              sleep 5
+              let COUNTER=COUNTER+1
+            done
+            
+            # Final check
+            if [ -z "$SERVICE_IP" ] || [ "$SERVICE_IP" == "null" ]; then
+              echo "❌ Could not get service IP from Consul after 60s"
+              # Show logs before exiting
+              nomad alloc logs $ALLOC_ID server
+              exit 1
+            fi
               if curl -f http://$SERVICE_IP:$SERVICE_PORT/health; then
                 echo "✅ Health check passed! (http://$SERVICE_IP:$SERVICE_PORT/health)"
               else

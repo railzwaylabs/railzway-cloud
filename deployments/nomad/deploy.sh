@@ -106,18 +106,28 @@ echo ""
 # Step 10: Show logs
 echo "📋 Step 10: Showing recent logs..."
 echo "=================================="
-nomad alloc logs "$ALLOC_ID" | tail -20
+nomad alloc logs "$ALLOC_ID" server | tail -20
 echo ""
 
 # Step 11: Health check
 echo "📋 Step 11: Performing health check..."
 sleep 10
 
-if curl -f http://localhost:8080/health &> /dev/null; then
-  echo -e "${GREEN}✓ Health check passed!${NC}"
+# Get service IP from Consul
+SERVICE_IP=$(consul catalog service railzway-cloud -detailed | grep -oP 'Address=\K[0-9.]+' | head -1)
+SERVICE_PORT=$(consul catalog service railzway-cloud -detailed | grep -oP 'Port=\K[0-9]+' | head -1)
+
+if [ -n "$SERVICE_IP" ] && [ -n "$SERVICE_PORT" ]; then
+  if curl -f http://$SERVICE_IP:$SERVICE_PORT/health &> /dev/null; then
+    echo -e "${GREEN}✓ Health check passed! (http://$SERVICE_IP:$SERVICE_PORT/health)${NC}"
+  else
+    echo -e "${YELLOW}⚠ Health check failed (might still be starting)${NC}"
+    echo "Service: http://$SERVICE_IP:$SERVICE_PORT/health"
+    echo "Check logs: nomad alloc logs $ALLOC_ID server"
+  fi
 else
-  echo -e "${YELLOW}⚠ Health check failed (might still be starting)${NC}"
-  echo "Check logs: nomad alloc logs $ALLOC_ID"
+  echo -e "${YELLOW}⚠ Could not get service IP from Consul${NC}"
+  echo "Check logs: nomad alloc logs $ALLOC_ID server"
 fi
 echo ""
 
@@ -127,7 +137,7 @@ echo -e "${GREEN}✅ Deployment complete!${NC}"
 echo ""
 echo "📊 Useful commands:"
 echo "  - Check status:  nomad job status railzway-cloud"
-echo "  - View logs:     nomad alloc logs -f $ALLOC_ID"
-echo "  - Health check:  curl http://localhost:8080/health"
+echo "  - View logs:     nomad alloc logs -f $ALLOC_ID server"
+echo "  - Health check:  curl http://$SERVICE_IP:$SERVICE_PORT/health"
 echo "  - Consul UI:     http://localhost:8500/ui/dc1/services/railzway-cloud"
 echo ""

@@ -126,6 +126,9 @@ jobs:
             # Set version for Nomad job
             export VERSION=v${{ needs.release.outputs.new_release_version }}
             
+            # Inject GITHUB_TOKEN into Consul KV for Docker auth
+            consul kv put railzway-cloud/github_token "${{ secrets.GITHUB_TOKEN }}"
+            
             # Submit Nomad job with new version
             nomad job run \
               -var="version=${VERSION}" \

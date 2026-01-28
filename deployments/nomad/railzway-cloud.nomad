@@ -95,10 +95,6 @@ EOH
           username = "railzwaylabs"
           password = var.github_token
         }
-        
-        volumes = [
-          "/opt/railzway/sql:/app/sql:ro"
-        ]
       }
 
       # Environment variables (non-sensitive)

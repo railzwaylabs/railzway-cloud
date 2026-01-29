@@ -61,6 +61,7 @@ func (m *SessionManager) CreateSession(c *gin.Context, userID int64) error {
 		Path:     "/",
 		MaxAge:   86400 * 7,
 		HttpOnly: false, // Accessible by JS
+		Domain:   m.cfg.AuthCookieDomain,
 		Secure:   m.cfg.AuthCookieSecure,
 	})
 

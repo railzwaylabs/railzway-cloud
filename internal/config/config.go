@@ -17,8 +17,9 @@ type Config struct {
 
 	Environment                 string
 	AuthCookieSecure            bool
-	AdminAPIToken               string
 	AuthCookieSecret            string
+	AuthCookieDomain            string
+	AdminAPIToken               string
 	InstanceSecretEncryptionKey string
 	AppRootDomain               string
 	AppRootScheme               string
@@ -101,6 +102,7 @@ func Load() *Config {
 		AuthCookieSecure:                authCookieSecure,
 		AdminAPIToken:                   strings.TrimSpace(getenv("ADMIN_API_TOKEN", "")),
 		AuthCookieSecret:                strings.TrimSpace(getenv("AUTH_COOKIE_SECRET", "")),
+		AuthCookieDomain:                getenv("AUTH_COOKIE_DOMAIN", ".railzway.com"),
 		InstanceSecretEncryptionKey:     strings.TrimSpace(getenv("INSTANCE_SECRET_ENCRYPTION_KEY", "")),
 		AppRootDomain:                   strings.TrimLeft(strings.TrimSpace(getenv("APP_ROOT_DOMAIN", "")), "."),
 		AppRootScheme:                   strings.TrimSpace(getenv("APP_ROOT_SCHEME", "")),

@@ -33,6 +33,7 @@ type Engine interface {
 
 	// ResumeSubscription resumes billing for a subscription.
 	ResumeSubscription(ctx context.Context, subscriptionID string) error
+	GetSubscriptionStatus(ctx context.Context, subscriptionID string) (string, error)
 
 	// ChangePlan updates the subscription plan/price.
 	ChangePlan(ctx context.Context, params ChangePlanParams) error

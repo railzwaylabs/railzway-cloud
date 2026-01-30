@@ -83,7 +83,7 @@ type CreateSubscriptionRequest struct {
 func (c *Client) CreateSubscription(ctx context.Context, customerID string, billingCycleType string, items []CreateSubscriptionItemRequest) (*Subscription, error) {
 	reqBody := CreateSubscriptionRequest{
 		CustomerID:       customerID,
-		CollectionMode:   "SEND_INVOICE",
+		CollectionMode:   "CHARGE_AUTOMATICALLY",
 		BillingCycleType: billingCycleType,
 		Items:            items,
 	}

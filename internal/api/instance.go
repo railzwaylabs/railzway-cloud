@@ -28,13 +28,14 @@ type instanceStatusPayload struct {
 	PlanID             string                   `json:"plan_id"`
 	PriceID            string                   `json:"price_id"`
 	SubscriptionID     string                   `json:"subscription_id"`
+	SubscriptionStatus string                   `json:"subscription_status"`
 	LaunchURL          string                   `json:"launch_url"`
 	LastError          string                   `json:"last_error,omitempty"`
 	CreatedAt          time.Time                `json:"created_at"`
 	UpdatedAt          time.Time                `json:"updated_at"`
 }
 
-func instanceStatusResponse(inst *instance.Instance) *instanceStatusPayload {
+func instanceStatusResponse(inst *instance.Instance, subscriptionStatus string) *instanceStatusPayload {
 	if inst == nil {
 		return nil
 	}
@@ -55,6 +56,7 @@ func instanceStatusResponse(inst *instance.Instance) *instanceStatusPayload {
 		PlanID:             inst.PlanID,
 		PriceID:            inst.PriceID,
 		SubscriptionID:     inst.SubscriptionID,
+		SubscriptionStatus: subscriptionStatus,
 		LaunchURL:          inst.LaunchURL,
 		LastError:          inst.LastError,
 		CreatedAt:          inst.CreatedAt,
@@ -78,7 +80,18 @@ func (r *Router) GetInstanceStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"status": "not_deployed", "org_id": orgID})
 		return
 	}
-	c.JSON(http.StatusOK, instanceStatusResponse(status))
+
+	var subStatus string
+	if status.SubscriptionID != "" {
+		s, err := r.billingEngine.GetSubscriptionStatus(c.Request.Context(), status.SubscriptionID)
+		if err == nil {
+			subStatus = s
+		} else {
+			r.logger.Warn("failed to fetch subscription status", zap.Error(err))
+		}
+	}
+
+	c.JSON(http.StatusOK, instanceStatusResponse(status, subStatus))
 }
 
 func (r *Router) StreamInstanceStatus(c *gin.Context) {
@@ -122,7 +135,14 @@ func (r *Router) StreamInstanceStatus(c *gin.Context) {
 		if status == nil {
 			payload = gin.H{"status": "missing", "org_id": orgID}
 		} else {
-			payload = instanceStatusResponse(status)
+			var subStatus string
+			if status.SubscriptionID != "" {
+				s, err := r.billingEngine.GetSubscriptionStatus(ctx, status.SubscriptionID)
+				if err == nil {
+					subStatus = s
+				}
+			}
+			payload = instanceStatusResponse(status, subStatus)
 		}
 
 		encoded, err := json.Marshal(payload)

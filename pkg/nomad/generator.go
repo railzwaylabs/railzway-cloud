@@ -45,6 +45,7 @@ func GenerateJob(cfg JobConfig) (*api.Job, error) {
 		},
 		Networks: []*api.NetworkResource{
 			{
+				Mode: "bridge",
 				DynamicPorts: []api.Port{
 					{Label: "http", To: 8080},
 				},
@@ -96,6 +97,7 @@ func GenerateJob(cfg JobConfig) (*api.Job, error) {
 {{ end }}{{ with key "%s/oauth/client_secret" }}AUTH_RAILZWAY_COM_CLIENT_SECRET={{ . }}
 {{ end }}{{ with key "%s/payment_provider_config_secret" }}PAYMENT_PROVIDER_CONFIG_SECRET={{ . }}
 {{ end }}`,
+		consulPrefix,
 		consulPrefix,
 		consulPrefix,
 		consulPrefix,

@@ -184,23 +184,33 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <button
-            onClick={() => handleAction('deploy', { version: 'latest' })}
-            disabled={!!actionLoading}
-            className="w-full rounded-lg bg-accent-primary hover:bg-accent-primary/90 text-white font-semibold py-3 px-4 transition-all shadow-sm text-sm flex items-center justify-center gap-2"
-          >
-            {actionLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Initializing...
-              </>
-            ) : (
-              <>
-                <Zap className="w-4 h-4" />
-                Provision Instance
-              </>
-            )}
-          </button>
+          {(!status.subscription_status || (status.subscription_status !== 'ACTIVE' && status.subscription_status !== 'TRIALING')) ? (
+            <button
+              onClick={() => window.location.href = `/billing/org/${currentOrg.id}`}
+              className="w-full rounded-lg bg-accent-primary hover:bg-accent-primary/90 text-white font-semibold py-3 px-4 transition-all shadow-sm text-sm flex items-center justify-center gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              Subscribe to Deploy
+            </button>
+          ) : (
+            <button
+              onClick={() => handleAction('deploy', { version: 'latest' })}
+              disabled={!!actionLoading}
+              className="w-full rounded-lg bg-accent-primary hover:bg-accent-primary/90 text-white font-semibold py-3 px-4 transition-all shadow-sm text-sm flex items-center justify-center gap-2"
+            >
+              {actionLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Initializing...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4" />
+                  Provision Instance
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     );

@@ -13,6 +13,7 @@ import (
 	"github.com/railzwaylabs/railzway-cloud/internal/api/middleware"
 	"github.com/railzwaylabs/railzway-cloud/internal/auth"
 	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/billing"
 	"github.com/railzwaylabs/railzway-cloud/internal/onboarding"
 	"github.com/railzwaylabs/railzway-cloud/internal/usecase/deployment"
 	"github.com/railzwaylabs/railzway-cloud/internal/user"
@@ -31,6 +32,7 @@ type Router struct {
 	onboardingSvc *onboarding.Service
 	userSvc       *user.Service
 	sessionMgr    *auth.SessionManager
+	billingEngine billing.Engine
 	client        *railzwayclient.Client
 	logger        *zap.Logger
 }
@@ -44,6 +46,7 @@ func NewRouter(
 	onboardingSvc *onboarding.Service,
 	userSvc *user.Service,
 	sessionMgr *auth.SessionManager,
+	billingEngine billing.Engine,
 	client *railzwayclient.Client,
 	logger *zap.Logger,
 ) *Router {
@@ -69,6 +72,7 @@ func NewRouter(
 		onboardingSvc: onboardingSvc,
 		userSvc:       userSvc,
 		sessionMgr:    sessionMgr,
+		billingEngine: billingEngine,
 		client:        client,
 		logger:        logger,
 	}

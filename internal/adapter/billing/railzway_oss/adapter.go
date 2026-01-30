@@ -24,6 +24,14 @@ func (a *Adapter) ResumeSubscription(ctx context.Context, subscriptionID string)
 	return a.client.ResumeSubscription(ctx, subscriptionID)
 }
 
+func (a *Adapter) GetSubscriptionStatus(ctx context.Context, subscriptionID string) (string, error) {
+	sub, err := a.client.GetSubscription(ctx, subscriptionID)
+	if err != nil {
+		return "", fmt.Errorf("billing adapter: failed to get subscription: %w", err)
+	}
+	return sub.Status, nil
+}
+
 func (a *Adapter) ChangePlan(ctx context.Context, params billing.ChangePlanParams) error {
 	// The caller (UseCase) provides the NewPriceID?
 	// OR does the domain provide the Tier, and WE map it to PriceID?

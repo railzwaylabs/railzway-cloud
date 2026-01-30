@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/railzwaylabs/railzway-cloud/internal/config"
+	"github.com/railzwaylabs/railzway-cloud/internal/domain/billing"
 	"github.com/railzwaylabs/railzway-cloud/internal/domain/instance"
 	"github.com/railzwaylabs/railzway-cloud/internal/domain/provisioning"
 	"github.com/railzwaylabs/railzway-cloud/internal/organization"
@@ -22,6 +23,7 @@ type DeployUseCase struct {
 	dbConfig      provisioning.DBConfig // Default config connection params (host/port)
 	runtimeCfg    RuntimeConfig
 	orgService    *organization.Service
+	billingEngine billing.Engine
 	cfg           *config.Config // OAuth and other config
 	authClient    *authclient.Client
 }
@@ -39,6 +41,7 @@ func NewDeployUseCase(
 	dbConfig provisioning.DBConfig,
 	runtimeCfg RuntimeConfig,
 	orgService *organization.Service,
+	billingEngine billing.Engine,
 	cfg *config.Config,
 	authClient *authclient.Client,
 ) *DeployUseCase {
@@ -49,6 +52,7 @@ func NewDeployUseCase(
 		dbConfig:      dbConfig,
 		runtimeCfg:    runtimeCfg,
 		orgService:    orgService,
+		billingEngine: billingEngine,
 		cfg:           cfg,
 		authClient:    authClient,
 	}
@@ -65,7 +69,24 @@ func (uc *DeployUseCase) Execute(ctx context.Context, orgID int64, version strin
 		return fmt.Errorf("instance not found for org %d", orgID)
 	}
 
-	// 2. Provision Database (Idempotent)
+	// 2. Check Subscription Status
+	if inst.SubscriptionID != "" {
+		status, err := uc.billingEngine.GetSubscriptionStatus(ctx, inst.SubscriptionID)
+		if err != nil {
+			return fmt.Errorf("failed to verify subscription status: %w", err)
+		}
+
+		// Allow only active or trialing
+		if status != "active" && status != "trialing" {
+			return fmt.Errorf("subscription is not active (status: %s). please pay to deploy", status)
+		}
+	} else if inst.Tier != instance.TierFreeTrial {
+		// If no subscription ID but not free trial (legacy/edge case?), block.
+		// NOTE: Assuming all paid tiers MUST have a subscription ID.
+		return fmt.Errorf("subscription required for tier %s", inst.Tier)
+	}
+
+	// 3. Provision Database (Idempotent)
 	if inst.DBUser == "" {
 		// First time provisioning
 		inst.DBUser = fmt.Sprintf("railzway_user_%d", inst.OrgID)

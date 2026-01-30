@@ -19,6 +19,7 @@ export interface InstanceStatus {
   url?: string;
   launch_url?: string;
   last_error?: string;
+  subscription_status?: string;
 }
 
 export interface TierSpec {

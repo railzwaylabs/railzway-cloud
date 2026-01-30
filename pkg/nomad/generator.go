@@ -107,7 +107,6 @@ func GenerateJob(cfg JobConfig) (*api.Job, error) {
 		consulPrefix,
 		consulPrefix,
 		consulPrefix,
-		consulPrefix,
 	)
 
 	task.Templates = []*api.Template{

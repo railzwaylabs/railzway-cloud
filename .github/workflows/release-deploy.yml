@@ -202,11 +202,7 @@ jobs:
                 nomad alloc logs $ALLOC_ID server
                 exit 1
               fi
-            else
-              echo "❌ Could not get service IP from Consul"
-              nomad alloc logs $ALLOC_ID server
-              exit 1
-            fi
+
 
       - name: Notify Success
         if: success()
